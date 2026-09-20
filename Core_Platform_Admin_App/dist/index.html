@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Core Platform and Admin operational dashboard" />
+    <title>Core Platform &amp; Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="login-screen" id="login-screen" aria-labelledby="login-title">
+      <div class="login-panel">
+        <div class="brand brand--login">
+          <span class="brand-mark" aria-hidden="true">CP</span>
+          <span>
+            <strong>Core Platform</strong>
+            <small>Administration Console</small>
+          </span>
+        </div>
+
+        <div class="login-copy">
+          <span class="eyebrow">Secure workspace</span>
+          <h1 id="login-title">Sign in to administration</h1>
+          <p>Manage platform users, permissions, service health, and operational activity from one workspace.</p>
+        </div>
+
+        <form class="login-form" id="login-form">
+          <label>
+            Email address
+            <input id="email" type="email" value="admin@coreplatform.dev" autocomplete="username" required />
+          </label>
+          <label>
+            Password
+            <input id="password" type="password" value="admin123" autocomplete="current-password" required />
+          </label>
+          <p class="form-error" id="login-error" role="alert"></p>
+          <button class="button button--primary button--wide" type="submit">Sign in</button>
+        </form>
+
+        <p class="demo-note"><strong>Demo account:</strong> admin@coreplatform.dev / admin123</p>
+      </div>
+      <aside class="login-visual" aria-hidden="true">
+        <div class="visual-grid"></div>
+        <div class="signal-card signal-card--one">
+          <span class="status-dot status-dot--online"></span>
+          <div><strong>All systems operational</strong><small>Updated just now</small></div>
+        </div>
+        <div class="signal-card signal-card--two">
+          <span class="signal-number">128</span>
+          <div><strong>Managed users</strong><small>93% active</small></div>
+        </div>
+      </aside>
+    </section>
+
+    <div class="app-shell" id="app-shell" hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">CP</span>
+          <span><strong>Core Platform</strong><small>Admin Console</small></span>
+        </div>
+
+        <nav class="nav" aria-label="Primary navigation">
+          <button class="nav-item is-active" data-view="dashboard" type="button"><span>▦</span> Dashboard</button>
+          <button class="nav-item" data-view="users" type="button"><span>◎</span> Users</button>
+          <button class="nav-item" data-view="roles" type="button"><span>◇</span> Roles &amp; Access</button>
+          <button class="nav-item" data-view="status" type="button"><span>◉</span> System Status</button>
+          <button class="nav-item" data-view="activity" type="button"><span>≡</span> Activity Log</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="signed-user">
+            <span class="avatar">MN</span>
+            <span><strong>Mykhailo N.</strong><small>Administrator</small></span>
+          </div>
+          <button class="text-button" id="logout-button" type="button">Sign out</button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">Core Platform / Admin</span>
+            <h1 id="page-title">Operational dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <span class="environment"><span class="status-dot status-dot--online"></span> Production healthy</span>
+            <button class="icon-button" type="button" aria-label="Notifications">3</button>
+          </div>
+        </header>
+
+        <section class="view is-visible" id="view-dashboard" data-title="Operational dashboard">
+          <div class="metrics-grid">
+            <article class="metric-card"><span>Total users</span><strong id="metric-total">128</strong><small>+6 this month</small></article>
+            <article class="metric-card"><span>Active accounts</span><strong id="metric-active">119</strong><small>93% of all users</small></article>
+            <article class="metric-card"><span>Administrators</span><strong>8</strong><small>2 recently reviewed</small></article>
+            <article class="metric-card"><span>Pending reviews</span><strong>5</strong><small class="warning-text">Requires attention</small></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel panel--activity">
+              <div class="panel-heading"><div><span class="eyebrow">Last 24 hours</span><h2>Administrative activity</h2></div><button class="text-button" data-jump="activity" type="button">View all</button></div>
+              <div class="activity-list" id="dashboard-activity"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><div><span class="eyebrow">Live services</span><h2>Platform health</h2></div><span class="pill pill--success">4 / 4 online</span></div>
+              <div class="service-list compact">
+                <div><span><i class="status-dot status-dot--online"></i> Identity service</span><strong>99.99%</strong></div>
+                <div><span><i class="status-dot status-dot--online"></i> Core API</span><strong>99.97%</strong></div>
+                <div><span><i class="status-dot status-dot--online"></i> Audit pipeline</span><strong>99.95%</strong></div>
+                <div><span><i class="status-dot status-dot--online"></i> Admin frontend</span><strong>100%</strong></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-users" data-title="User administration">
+          <div class="section-actions">
+            <div><h2>Managed users</h2><p>Search accounts, review access, and maintain user status.</p></div>
+            <button class="button button--primary" id="add-user-button" type="button">Add user</button>
+          </div>
+          <div class="toolbar">
+            <label class="search-field"><span>⌕</span><input id="user-search" type="search" placeholder="Search by name or email" /></label>
+            <select id="role-filter" aria-label="Filter by role"><option value="all">All roles</option><option>Administrator</option><option>Operator</option><option>Viewer</option></select>
+            <select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option>Active</option><option>Pending</option><option>Inactive</option></select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last active</th><th class="align-right">Actions</th></tr></thead>
+              <tbody id="users-table-body"></tbody>
+            </table>
+          </div>
+          <p class="table-summary" id="user-count"></p>
+        </section>
+
+        <section class="view" id="view-roles" data-title="Roles and access">
+          <div class="section-actions"><div><h2>Permission model</h2><p>Review the access assigned to each operational role.</p></div><span class="pill">Last reviewed Sep 18, 2026</span></div>
+          <div class="role-grid">
+            <article class="role-card role-card--featured"><div class="role-icon">A</div><h3>Administrator</h3><p>Full access to users, roles, settings, audit records, and service status.</p><div class="role-meta"><strong>8 users</strong><span>7 permissions</span></div></article>
+            <article class="role-card"><div class="role-icon">O</div><h3>Operator</h3><p>Operational access to user records, status views, and routine platform actions.</p><div class="role-meta"><strong>42 users</strong><span>4 permissions</span></div></article>
+            <article class="role-card"><div class="role-icon">V</div><h3>Viewer</h3><p>Read-only access to approved dashboards, users, and platform status.</p><div class="role-meta"><strong>78 users</strong><span>2 permissions</span></div></article>
+          </div>
+          <article class="panel permission-panel">
+            <div class="panel-heading"><div><span class="eyebrow">Access matrix</span><h2>Capabilities by role</h2></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Capability</th><th>Administrator</th><th>Operator</th><th>Viewer</th></tr></thead><tbody>
+              <tr><td>View dashboard and system status</td><td>Full</td><td>Full</td><td>Read</td></tr>
+              <tr><td>Create and edit users</td><td>Full</td><td>Limited</td><td>None</td></tr>
+              <tr><td>Change roles and permissions</td><td>Full</td><td>None</td><td>None</td></tr>
+              <tr><td>Review audit activity</td><td>Full</td><td>Read</td><td>None</td></tr>
+            </tbody></table></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-status" data-title="System status">
+          <div class="section-actions"><div><h2>Service health</h2><p>Current availability and latency across the platform.</p></div><span class="pill pill--success"><span class="status-dot status-dot--online"></span> All operational</span></div>
+          <div class="status-stack">
+            <article class="status-row"><div><span class="service-badge">ID</span><span><strong>Identity service</strong><small>Authentication and session management</small></span></div><span class="latency">42 ms</span><span class="pill pill--success">Operational</span></article>
+            <article class="status-row"><div><span class="service-badge">API</span><span><strong>Core API</strong><small>User and configuration operations</small></span></div><span class="latency">68 ms</span><span class="pill pill--success">Operational</span></article>
+            <article class="status-row"><div><span class="service-badge">AU</span><span><strong>Audit pipeline</strong><small>Administrative event processing</small></span></div><span class="latency">81 ms</span><span class="pill pill--success">Operational</span></article>
+            <article class="status-row"><div><span class="service-badge">WEB</span><span><strong>Admin frontend</strong><small>Management console delivery</small></span></div><span class="latency">24 ms</span><span class="pill pill--success">Operational</span></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-activity" data-title="Activity log">
+          <div class="section-actions"><div><h2>Audit activity</h2><p>Traceable records of administrative actions and access changes.</p></div><button class="button button--secondary" type="button" id="export-button">Export CSV</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th></tr></thead><tbody id="activity-table-body"></tbody></table></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="modal" id="user-dialog">
+      <form method="dialog" id="user-form">
+        <div class="modal-heading"><div><span class="eyebrow">User administration</span><h2>Add a user</h2></div><button class="icon-button" value="cancel" aria-label="Close" type="submit">×</button></div>
+        <label>Full name<input id="new-name" required placeholder="e.g. Taylor Morgan" /></label>
+        <label>Email address<input id="new-email" type="email" required placeholder="name@example.com" /></label>
+        <div class="form-grid"><label>Role<select id="new-role"><option>Viewer</option><option>Operator</option><option>Administrator</option></select></label><label>Status<select id="new-status"><option>Active</option><option>Pending</option></select></label></div>
+        <div class="modal-actions"><button class="button button--secondary" value="cancel" type="submit">Cancel</button><button class="button button--primary" id="create-user-button" value="default" type="submit">Create user</button></div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
