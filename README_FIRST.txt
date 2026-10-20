@@ -18,9 +18,10 @@ class-diagram.drawio.png
 Both are draw.io files saved as PNG. Open them at app.diagrams.net to edit.
 
 SUPPORTING TEAM DOCUMENTS
-- Team_Journal.docx
-- Evaluation.docx
-- Time_Log.docx
+- Team_Journal.docx (one journal for the team)
+- Time_Log_Mykhailo.docx, Time_Log_Yaroslav.docx, Time_Log_Vladyslav.docx (individual time logs)
+- Evaluation.pdf (peer evaluation)
+- recordings.txt (link to the weekly meeting recordings)
 
 RUNNABLE PROJECT
 Core_Platform_Admin_App/
