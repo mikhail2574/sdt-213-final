@@ -7,8 +7,15 @@ Team members:
 
 SUBMISSION DOCUMENT
 Core_Platform_Admin_Project_Submission.docx
-This is the single Word document containing the Cover Page, Project Overview,
-User's Guide / Walkthrough, and Project Schedule requested for Canvas.
+The single Word document for Phase II: Project Overview, User's Guide,
+Project Schedule, Use Case Diagram and Scenarios, Object Identification
+and CRC Cards, Class Diagram and Class Descriptions, Test Plan and
+Initial Prototype.
+
+DIAGRAMS (draw.io)
+use-case-diagram.drawio.png
+class-diagram.drawio.png
+Both are draw.io files saved as PNG. Open them at app.diagrams.net to edit.
 
 SUPPORTING TEAM DOCUMENTS
 - Team_Journal.docx
