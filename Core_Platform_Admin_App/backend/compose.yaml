@@ -1,0 +1,19 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: core_platform
+      MYSQL_USER: core_platform
+      MYSQL_PASSWORD: core_dev_password
+      MYSQL_ROOT_PASSWORD: local_root_password
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - core_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+volumes:
+  core_mysql:
