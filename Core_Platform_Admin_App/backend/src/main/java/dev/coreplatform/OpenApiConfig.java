@@ -19,7 +19,8 @@ public class OpenApiConfig {
     @Bean OpenApiCustomizer endpointSecurity() {
         return api->api.getPaths().forEach((path,item)->item.readOperationsMap().forEach((method,operation)->{
             if(path.equals("/api/v1/health") || List.of("/api/v1/auth/login","/api/v1/auth/register","/api/v1/auth/forgot-password","/api/v1/auth/email-link").contains(path)) operation.setSecurity(List.of());
-            else if((method==io.swagger.v3.oas.models.PathItem.HttpMethod.POST && List.of("/api/v1/users","/api/v1/notifications").contains(path)) || path.equals("/api/v1/roles"))
+            else if(List.of("/api/v1/auth/introspect","/api/v1/auth/module-exchange").contains(path)) operation.setSecurity(List.of(new SecurityRequirement().addList("moduleKey")));
+            else if((method==io.swagger.v3.oas.models.PathItem.HttpMethod.POST && List.of("/api/v1/users","/api/v1/notifications").contains(path)) || path.equals("/api/v1/roles") || path.startsWith("/api/v1/integrations/groups/"))
                 operation.setSecurity(List.of(new SecurityRequirement().addList("bearerAuth"),new SecurityRequirement().addList("moduleKey")));
             else operation.setSecurity(List.of(new SecurityRequirement().addList("bearerAuth")));
         }));

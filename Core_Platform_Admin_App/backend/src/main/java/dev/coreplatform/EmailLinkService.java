@@ -53,7 +53,7 @@ public class EmailLinkService {
         String raw=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         db.write("INSERT INTO email_tokens(token_hash,user_id,purpose,expires_at) VALUES(?,?,?,?)",hash(raw),id,purpose,
             Timestamp.from(clock.instant().plus(purpose.equals("confirm")?Duration.ofDays(7):Duration.ofHours(24))));
-        email.enqueue((String)user.get("email"),purpose.equals("confirm")?"Confirm your account":"Set your password",linkBase+"?token="+raw);
+        email.enqueue((String)user.get("email"),purpose.equals("confirm")?"Confirm your account":"Set your password",linkBase+"?token="+raw+"&purpose="+purpose);
     }
     @Transactional
     public Map<String,Object> register(Registration body) {

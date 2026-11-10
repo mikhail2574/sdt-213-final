@@ -53,6 +53,15 @@ public class ModuleService {
         if(!CODES.contains(code)) throw new ResponseStatusException(NOT_FOUND,"Module not found");
         access.require(jwt,"modules."+code);
     }
+    public void authorizeRoute(Jwt jwt,String code,String path,String method) {
+        authorize(jwt,code);
+        var actor=access.actor(jwt);
+        if("Viewer".equals(access.role(actor)) && !Set.of("GET","HEAD").contains(method)) throw new ResponseStatusException(FORBIDDEN,"Viewer access is read-only");
+        var policies=db.rows("SELECT path_prefix,permission FROM gateway_policies WHERE module_code=? AND http_method=? ORDER BY CHAR_LENGTH(path_prefix) DESC",code,method);
+        var matched=policies.stream().filter(p->{ String prefix=p.get("path_prefix").toString(); return prefix.equals("/") || path.equals(prefix) || path.startsWith(prefix+"/"); }).findFirst();
+        if(matched.isEmpty()) throw new ResponseStatusException(FORBIDDEN,"No gateway policy permits this route");
+        access.require(jwt,matched.get().get("permission").toString());
+    }
     public record Reply(int status,String contentType,byte[] body) {}
     public Reply request(String code,String path,String query,String method,String bearer,String contentType,byte[] body) {
         if(body!=null && body.length>1048576) throw new ResponseStatusException(PAYLOAD_TOO_LARGE,"Maximum request size is 1 MB");

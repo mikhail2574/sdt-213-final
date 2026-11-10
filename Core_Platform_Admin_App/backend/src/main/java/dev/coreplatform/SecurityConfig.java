@@ -36,6 +36,7 @@ public class SecurityConfig {
     @Bean SecurityFilterChain security(HttpSecurity http) throws Exception {
         return http.csrf(c -> c.disable()).cors(c -> {}).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.POST,"/api/v1/users","/api/v1/notifications").permitAll()
+                .requestMatchers("/api/v1/auth/introspect","/api/v1/auth/module-exchange","/api/v1/integrations/groups/**","/api/v1/health/readiness").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/roles").permitAll()
                 .requestMatchers("/api/v1/health", "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/forgot-password", "/api/v1/auth/email-link", "/docs", "/swagger-ui/**", "/v3/api-docs/**").permitAll().anyRequest().authenticated())
             .oauth2ResourceServer(o -> o.jwt(j -> {}).authenticationEntryPoint((req,res,e) -> {

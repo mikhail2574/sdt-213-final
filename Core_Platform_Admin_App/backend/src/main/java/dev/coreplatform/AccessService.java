@@ -13,6 +13,14 @@ public class AccessService {
     public static final Set<String> CODES=Set.of("users.view","users.create","users.edit","roles.manage","dashboard.view","audit.view","reports.view","settings.manage","announcements.send","directory.view","messages.send","modules.lms","modules.sis","modules.scheduling","modules.admissions");
     public AccessService(UserRepository users,PlatformRepository db) { this.users=users; this.db=db; }
     public Map<String,Object> actor(Jwt jwt) {
+        if(jwt!=null && jwt.hasClaim("module")) throw new ResponseStatusException(UNAUTHORIZED,"Module-scoped tokens cannot call user endpoints");
+        return active(jwt);
+    }
+    public Map<String,Object> moduleActor(Jwt jwt,String module) {
+        if(jwt.hasClaim("module") && !module.equals(jwt.getClaimAsString("module"))) throw new ResponseStatusException(UNAUTHORIZED,"Token is scoped to another module");
+        return active(jwt);
+    }
+    private Map<String,Object> active(Jwt jwt) {
         Map<String,Object> u=null;
         try { if(jwt!=null) u=users.findById(Long.parseLong(jwt.getSubject())); } catch(NumberFormatException ignored) {}
         if(u==null || !"Active".equals(u.get("status"))) throw new ResponseStatusException(UNAUTHORIZED,"Account is not active");

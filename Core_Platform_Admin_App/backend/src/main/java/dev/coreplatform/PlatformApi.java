@@ -80,6 +80,7 @@ public class PlatformApi {
         modules.authorize(jwt,code);
         String prefix="/api/v1/modules/"+code;
         String path=request.getRequestURI().substring(prefix.length());
+        modules.authorizeRoute(jwt,code,path.isEmpty()?"/":path,request.getMethod());
         var reply=modules.request(code,path.isEmpty()?"/":path,request.getQueryString(),request.getMethod(),request.getHeader("Authorization"),request.getContentType(),body);
         // HTML from an upstream module must never execute on the platform's origin.
         return ResponseEntity.status(reply.status()).header("Content-Type",reply.contentType()).header("X-Content-Type-Options","nosniff").header("Content-Security-Policy","sandbox; default-src 'none'").body(reply.body());
