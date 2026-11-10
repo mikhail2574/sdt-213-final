@@ -1,5 +1,6 @@
 .tools/
 **/target/
 **/node_modules/
-**/dist/
+# Generated frontend builds at any depth
+dist/
 *.log
