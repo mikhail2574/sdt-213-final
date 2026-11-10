@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:audit_queue;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE","spring.datasource.username=sa","spring.datasource.password=","app.seed-demo=0","app.audit-async=true","app.audit-initial-ms=3600000","app.monitor-initial-ms=3600000"})
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:audit_queue;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE","spring.datasource.username=sa","spring.datasource.password=","spring.flyway.user=sa","spring.flyway.password=","app.seed-demo=0","app.audit-async=true","app.audit-initial-ms=3600000","app.monitor-initial-ms=3600000"})
 class AuditDispatcherTest {
     @Autowired AuditRepository audit;
     @Autowired AuditDispatcher dispatcher;
