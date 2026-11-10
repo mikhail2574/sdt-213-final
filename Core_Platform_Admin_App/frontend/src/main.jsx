@@ -55,7 +55,7 @@ function Badge({ children, tone = 'neutral' }) {
   return <span className={`badge badge-${tone}`}>{children}</span>
 }
 
-function SignIn({ onLogin }) {
+function SignIn({ onLogin, message }) {
   const [email, setEmail] = useState('admin@coreplatform.dev')
   const [password, setPassword] = useState('admin123')
   const [busy, setBusy] = useState(false)
@@ -81,6 +81,7 @@ function SignIn({ onLogin }) {
         <p className="eyebrow">Secure workspace</p>
         <h1>Sign in to the university platform</h1>
         <p className="muted intro">One account for courses, registration, timetables, admissions and administration.</p>
+        {message && <p className="notice" role="status">{message}</p>}
         <form onSubmit={submit} className="login-form">
           <label>Email address<input autoComplete="username" type="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
           <label>Password<input autoComplete="current-password" type="password" required value={password} onChange={e => setPassword(e.target.value)} /></label>
@@ -178,7 +179,46 @@ function Audit({ rows, error }) { return <><div className="section-toolbar"><div
 function Home({ user, setPage }) { const mods = MODULES[user.role] || []
   return <><div className="welcome-card"><p className="eyebrow">{user.role} · {user.department}</p><h2>Welcome, {user.name.split(' ')[0]}.</h2><p>You are signed in to Core Platform. Module integrations come later.</p></div><div className="section-toolbar"><div><h2>University modules</h2><p className="muted">These modules belong to separate teams and are not connected yet.</p></div></div><div className="module-grid">{mods.map(([title, service]) => <article className="card module-card" key={title}><div className="module-icon">{service.slice(0, 2).toUpperCase()}</div><h2>{title}</h2><p className="muted">{service}</p><div className="module-foot"><Badge>Integration pending</Badge></div></article>)}{user.role === 'Staff' && user.console_access && <button className="card module-card module-button" onClick={() => setPage('dashboard')}><div className="module-icon">CP</div><h2>Admin Console</h2><p className="muted">{user.console_access} access</p><div className="module-foot"><span className="text-link">Open console →</span></div></button>}</div></> }
 
-function Profile({ user }) { return <section className="card profile-card"><div className="section-heading"><div><p className="eyebrow">Account</p><h2>University profile</h2></div></div><div className="profile-head"><Initials name={user.name} /><div><h2>{user.name}</h2><p className="muted">{user.role}{user.console_access ? ` · ${user.console_access}` : ''}</p></div></div><div className="profile-fields"><div><small>University email</small><strong>{user.email}</strong></div><div><small>Department</small><strong>{user.department || 'Not set'}</strong></div><div><small>Account status</small><Badge tone="success">{user.status}</Badge></div></div><p className="hint">Profile editing and password changes are planned for the next phase.</p></section> }
+function Profile({ user, onChangePassword }) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    if (next !== confirmation) { setError('The new passwords do not match.'); return }
+    if (new TextEncoder().encode(next).length > 72) { setError('The new password must be at most 72 UTF-8 bytes.'); return }
+    setBusy(true)
+    try {
+      await onChangePassword({ current_password: current, new_password: next, confirm_password: confirmation })
+    } catch (err) {
+      setError(err.message)
+    } finally { setBusy(false) }
+  }
+
+  return <section className="card profile-card">
+    <div className="section-heading"><div><p className="eyebrow">Account</p><h2>University profile</h2></div></div>
+    <div className="profile-head"><Initials name={user.name} /><div><h2>{user.name}</h2><p className="muted">{user.role}{user.console_access ? ` / ${user.console_access}` : ''}</p></div></div>
+    <div className="profile-fields">
+      <div><small>University email</small><strong>{user.email}</strong></div>
+      <div><small>Department</small><strong>{user.department || 'Not set'}</strong></div>
+      <div><small>Account status</small><Badge tone="success">{user.status}</Badge></div>
+    </div>
+    <p className="hint">Official account details are managed by your administrator.</p>
+    <form className="modal-form password-form" onSubmit={submit}>
+      <h2>Change password</h2>
+      <p className="hint" id="password-rules">Use at least 8 characters, including a letter and a number. After saving, sign in again on each device.</p>
+      <label>Current password<input type="password" autoComplete="current-password" required maxLength={1024} value={current} onChange={e => setCurrent(e.target.value)} /></label>
+      <label>New password<input type="password" autoComplete="new-password" aria-describedby="password-rules" required minLength={8} maxLength={72} value={next} onChange={e => setNext(e.target.value)} /></label>
+      <label>Confirm new password<input type="password" autoComplete="new-password" required maxLength={72} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></label>
+      {error && <p className="error" role="alert">{error}</p>}
+      <button className="button primary" disabled={busy}>{busy ? 'Updating password...' : 'Update password'}</button>
+    </form>
+  </section>
+}
 
 function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem('core_token'))
@@ -195,6 +235,7 @@ function App() {
   const [selected, setSelected] = useState(null)
   const [filters, setFilters] = useState({ q: '', role: '', status: '' })
   const [notice, setNotice] = useState('')
+  const [signInMessage, setSignInMessage] = useState('')
 
   function clearSession() {
     sessionStorage.removeItem('core_token')
@@ -228,6 +269,7 @@ function App() {
   async function login(email, password) {
     const result = await api('/auth/login', null, { method: 'POST', body: JSON.stringify({ email, password }) })
     sessionStorage.setItem('core_token', result.access_token)
+    setSignInMessage('')
     setToken(result.access_token)
     setUser(result.user)
     setPage(result.user.role === 'Administrator' ? 'dashboard' : 'home')
@@ -283,8 +325,22 @@ function App() {
     } finally { setBusy(false) }
   }
 
+  async function changePassword(body) {
+    try {
+      await api('/auth/change-password', token, { method: 'POST', body: JSON.stringify(body) })
+      clearSession()
+      setSignInMessage('Password updated. Please sign in with your new password.')
+    } catch (err) {
+      if (err.status === 401) {
+        clearSession()
+        setSignInMessage('Your session has expired. Please sign in again.')
+      }
+      throw err
+    }
+  }
+
   if (booting) return <div className="boot">Loading Core Platform…</div>
-  if (!user) return <SignIn onLogin={login} />
+  if (!user) return <SignIn onLogin={login} message={signInMessage} />
   return <div className="app-shell"><Sidebar user={user} page={page} setPage={p => { setPage(p); setNotice('') }} canAccessAdmin={canAccessAdmin} signOut={signOut} /><main className="main"><Header user={user} page={page} />{notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Dismiss">×</button></div>}
     {page === 'dashboard' && <Dashboard data={dashboard} error={error} />}
     {page === 'users' && <Users users={users} loading={loadingUsers} error={error} filters={filters} setFilters={setFilters} selected={selected} setSelected={setSelected} canEdit={canEdit} isAdmin={user.role === 'Administrator'} onUpdate={updateUser} onCreate={createUser} refreshing={busy} />}
@@ -292,7 +348,7 @@ function App() {
     {page === 'status' && <Status health={health} error={error} />}
     {page === 'audit' && user.role === 'Administrator' && <Audit rows={audit} error={error} />}
     {page === 'home' && <Home user={user} setPage={setPage} />}
-    {page === 'profile' && <Profile user={user} />}
+    {page === 'profile' && <Profile user={user} onChangePassword={changePassword} />}
   </main></div>
 }
 

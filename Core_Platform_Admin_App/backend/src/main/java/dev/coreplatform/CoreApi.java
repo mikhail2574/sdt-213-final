@@ -17,6 +17,9 @@ public class CoreApi {
     @GetMapping("/health") public Map<String, String> health() { return core.health(); }
     @PostMapping("/auth/login") public Map<String, Object> login(@Valid @RequestBody AuthService.Login body) { return auth.login(body); }
     @PostMapping("/auth/logout") public ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) { auth.logout(jwt); return ResponseEntity.noContent().build(); }
+    @PostMapping("/auth/change-password") public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AuthService.PasswordChange body) {
+        auth.changePassword(jwt, body); return ResponseEntity.noContent().build();
+    }
     @GetMapping("/me") public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) { return core.me(jwt); }
     @GetMapping("/admin/dashboard") public Map<String, Object> dashboard(@AuthenticationPrincipal Jwt jwt) { return core.dashboard(jwt); }
     @GetMapping("/admin/users") public List<Map<String, Object>> users(@AuthenticationPrincipal Jwt jwt,

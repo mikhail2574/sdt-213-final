@@ -55,6 +55,7 @@ All demo accounts and passwords are **development-only**.
 | Requirement                 | Current implementation                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------ |
 | FR1                         | Shared sign-in for six seeded accounts; sign-out revokes the SQL session and clears the client token.                        |
+| FR4                         | Change own password from My Profile; validate current password, confirmation and password rules; revoke all prior sessions. |
 | FR5                         | Five failed logins trigger 15-minute lockout; events recorded in database.                       |
 | FR7, NFR3                   | Role-sensitive navigation **and** server-side authorization.                                     |
 | FR8                         | Dashboard: total / active / administrator / pending user counters, recent audit entries.         |
@@ -122,3 +123,9 @@ For a database created by the earlier `schema.sql` starter, take a backup, confi
 `AuthService` coordinates sign-in, BCrypt verification, lockout counters, session creation and audit events. `SessionRepository` persists a random JWT `jti`, account ID, creation/last-activity/expiry timestamps and revocation time; it does not store raw bearer tokens. Every authenticated request verifies the active account and atomically renews a non-revoked session only while it remains within its 30-minute inactivity window and 8-hour absolute lifetime. `POST /api/v1/auth/logout` returns 204 and revokes only the caller's session. The frontend waits for this response before clearing its local session.
 
 Previously issued JWTs without a persisted session are rejected after this upgrade; sign in again. Account deactivation blocks requests immediately. Session cleanup/retention and refresh-token rotation remain future work. No real cross-module SSO/gateway is claimed by this session implementation.
+
+## Change own password (UC3, FR4)
+
+Open **My Profile**, enter the current password, the new password and its confirmation, then select **Update password**. A new password requires at least eight characters, a letter and a number; BCrypt input is limited to 72 UTF-8 bytes. A wrong current password or mismatched/invalid confirmation leaves the hash unchanged. A successful change updates the BCrypt hash, resets failed sign-in counters, revokes all existing sessions and records `Changed password` in the audit log within one database transaction. The UI returns to sign-in with a confirmation message.
+
+Backend contract: `POST /api/v1/auth/change-password` with a bearer token and JSON fields `current_password`, `new_password`, `confirm_password`; success is 204. A wrong current password returns 400; invalid fields or password rules return 422; an expired/revoked/inactive session returns 401. Forgotten-password/email reset is a separate use case and is not implemented here.

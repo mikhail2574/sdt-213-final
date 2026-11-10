@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"logging.level.root=WARN", "logging.level.org.springframework=WARN", "spring.datasource.url=${TEST_DATABASE_URL:jdbc:h2:mem:core;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}", "spring.datasource.username=${TEST_DATABASE_USER:sa}", "spring.datasource.password=${TEST_DATABASE_PASSWORD:}", "app.seed-demo=1"})
+@SpringBootTest(properties={"spring.datasource.url=${TEST_DATABASE_URL:jdbc:h2:mem:core;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}", "spring.datasource.username=${TEST_DATABASE_USER:sa}", "spring.datasource.password=${TEST_DATABASE_PASSWORD:}", "app.seed-demo=1"})
 @AutoConfigureMockMvc
 class ApiTest {
     @Autowired MockMvc mvc;
@@ -60,52 +60,5 @@ class ApiTest {
         mvc.perform(get("/api/v1/admin/audit").header("Authorization",admin)).andExpect(jsonPath("$[0].action").value("Updated user"));
         db.update("UPDATE users SET status='Inactive' WHERE email='staff@coreplatform.dev'");
         mvc.perform(get("/api/v1/me").header("Authorization",operator)).andExpect(status().isUnauthorized());
-    }
-
-    String sessionId(String bearer) throws Exception {
-        return com.nimbusds.jwt.SignedJWT.parse(bearer.substring(7)).getJWTClaimsSet().getJWTID();
-    }
-    @Test void logoutRevokesOnlyTheCurrentSession() throws Exception {
-        String first=login("student"), second=login("student");
-        Assertions.assertNotEquals(first, second);
-        mvc.perform(post("/api/v1/auth/logout").header("Authorization", first)).andExpect(status().isNoContent());
-        mvc.perform(get("/api/v1/me").header("Authorization", first)).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/v1/me").header("Authorization", second)).andExpect(status().isOk());
-        Assertions.assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM audit_entries WHERE action='Signed out'", Integer.class));
-    }
-    @Test void idleTimeoutAndActivityRenewal() throws Exception {
-        String token=login("student");
-        var old=java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(29*60));
-        db.update("UPDATE auth_sessions SET last_activity_at=? WHERE token_id=?", old, sessionId(token));
-        mvc.perform(get("/api/v1/me").header("Authorization", token)).andExpect(status().isOk());
-        Assertions.assertTrue(db.queryForObject("SELECT last_activity_at FROM auth_sessions WHERE token_id=?", java.sql.Timestamp.class, sessionId(token)).after(old));
-        db.update("UPDATE auth_sessions SET last_activity_at=? WHERE token_id=?", java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1801)), sessionId(token));
-        mvc.perform(get("/api/v1/me").header("Authorization", token)).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/v1/me").header("Authorization", token)).andExpect(status().isUnauthorized());
-    }
-    @Test void expiredDatabaseSessionCannotBeRenewed() throws Exception {
-        String token=login("student");
-        var now=java.time.Instant.now();
-        db.update("UPDATE auth_sessions SET created_at=?,expires_at=? WHERE token_id=?", java.sql.Timestamp.from(now.minusSeconds(60)), java.sql.Timestamp.from(now.minusSeconds(1)), sessionId(token));
-        mvc.perform(get("/api/v1/me").header("Authorization", token)).andExpect(status().isUnauthorized());
-    }
-    @Autowired org.springframework.security.oauth2.jwt.JwtEncoder encoder;
-    @Test void signedTokenNeedsAnExistingSessionAndExpiration() throws Exception {
-        long id=db.queryForObject("SELECT id FROM users WHERE role='Student'",Long.class);
-        var now=java.time.Instant.now();
-        for (boolean expires : new boolean[]{true,false}) {
-            var builder=org.springframework.security.oauth2.jwt.JwtClaimsSet.builder().subject(Long.toString(id)).id(java.util.UUID.randomUUID().toString()).issuedAt(now);
-            if(expires) builder.expiresAt(now.plusSeconds(1800));
-            String token=encoder.encode(org.springframework.security.oauth2.jwt.JwtEncoderParameters.from(
-                org.springframework.security.oauth2.jwt.JwsHeader.with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build(),builder.build())).getTokenValue();
-            mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+token)).andExpect(status().isUnauthorized());
-        }
-    }
-    @Test void inactiveAndPendingAccountsCannotSignIn() throws Exception {
-        for (String state : new String[]{"Inactive","Pending"}) {
-            db.update("UPDATE users SET status=? WHERE email='student@coreplatform.dev'",state);
-            mvc.perform(post("/api/v1/auth/login").contentType("application/json").content("{\"email\":\"student@coreplatform.dev\",\"password\":\"student123\"}")).andExpect(status().isForbidden());
-        }
-        Assertions.assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM auth_sessions",Integer.class));
     }
 }

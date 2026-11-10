@@ -82,4 +82,33 @@ public class AuthService {
         sessions.revoke(token.getId(), id, clock.instant());
         audit.append((String) user.get("email"), "Signed out", (String) user.get("email"), true);
     }
+
+    public record PasswordChange(
+        @NotNull @Size(max=1024) String current_password,
+        @NotBlank @Size(min=8,max=72) String new_password,
+        @NotNull @Size(max=72) String confirm_password) {
+        @Override public String toString() { return "PasswordChange[REDACTED]"; }
+    }
+
+    /** UC3 / FR4: change the caller's password and invalidate all prior sessions atomically. */
+    @Transactional
+    public void changePassword(Jwt token, PasswordChange body) {
+        long id = Long.parseLong(token.getSubject());
+        var user = users.findByIdForUpdate(id);
+        if (user == null || !"Active".equals(user.get("status")))
+            throw new ResponseStatusException(UNAUTHORIZED, "Account is not active");
+        if (!body.new_password().equals(body.confirm_password()))
+            throw new ResponseStatusException(UNPROCESSABLE_ENTITY, "The new passwords do not match");
+        String next = body.new_password();
+        if (next.getBytes(StandardCharsets.UTF_8).length > 72 ||
+            !next.codePoints().anyMatch(Character::isLetter) || !next.codePoints().anyMatch(Character::isDigit))
+            throw new ResponseStatusException(UNPROCESSABLE_ENTITY, "Use at least 8 characters, including a letter and a number, and at most 72 UTF-8 bytes");
+        if (body.current_password().getBytes(StandardCharsets.UTF_8).length > 72 ||
+            !passwords.matches(body.current_password(), (String) user.get("password_hash")))
+            throw new ResponseStatusException(BAD_REQUEST, "The current password is incorrect");
+        users.changePassword(id, passwords.encode(next));
+        users.resetFailures(id);
+        sessions.revokeAll(id, clock.instant());
+        audit.append((String) user.get("email"), "Changed password", (String) user.get("email"), true);
+    }
 }
