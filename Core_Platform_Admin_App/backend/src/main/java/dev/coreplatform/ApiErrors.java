@@ -12,6 +12,21 @@ public class ApiErrors {
     ResponseEntity<?> status(ResponseStatusException e) { return ResponseEntity.status(e.getStatusCode()).body(Map.of("detail",e.getReason()==null?"Request failed":e.getReason())); }
     @ExceptionHandler(DuplicateKeyException.class)
     ResponseEntity<?> duplicate() { return ResponseEntity.status(409).body(Map.of("detail","Email is already registered")); }
-    @ExceptionHandler({MethodArgumentNotValidException.class,HttpMessageNotReadableException.class})
+    @ExceptionHandler({org.springframework.web.servlet.resource.NoResourceFoundException.class,
+        org.springframework.web.HttpRequestMethodNotSupportedException.class,
+        org.springframework.web.HttpMediaTypeNotSupportedException.class})
+    ResponseEntity<?> http(org.springframework.web.ErrorResponse e) {
+        return ResponseEntity.status(e.getStatusCode()).body(Map.of("detail",org.springframework.http.HttpStatus.valueOf(e.getStatusCode().value()).getReasonPhrase()));
+    }
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<?> unreadable(HttpMessageNotReadableException e) {
+        for(Throwable cause=e;cause!=null;cause=cause.getCause()) if(cause instanceof RequestSizeFilter.LimitExceeded)
+            return ResponseEntity.status(413).body(Map.of("detail","Maximum request size is 1 MB"));
+        return ResponseEntity.unprocessableEntity().body(Map.of("detail","Invalid request fields"));
+    }
+    @ExceptionHandler({MethodArgumentNotValidException.class,
+        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+        org.springframework.web.bind.MissingServletRequestParameterException.class,
+        org.springframework.web.bind.MissingRequestHeaderException.class})
     ResponseEntity<?> invalid() { return ResponseEntity.unprocessableEntity().body(Map.of("detail","Invalid request fields")); }
 }

@@ -32,5 +32,4 @@ public class CoreApi {
     @PatchMapping("/admin/users/{id}") public Map<String, Object> update(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody Map<String, Object> fields) {
         return core.update(jwt, id, fields);
     }
-    @GetMapping("/admin/audit") public List<Map<String, Object>> activity(@AuthenticationPrincipal Jwt jwt) { return core.activity(jwt); }
 }

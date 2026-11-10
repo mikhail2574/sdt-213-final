@@ -35,7 +35,9 @@ public class SecurityConfig {
     }
     @Bean SecurityFilterChain security(HttpSecurity http) throws Exception {
         return http.csrf(c -> c.disable()).cors(c -> {}).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(a -> a.requestMatchers("/api/v1/health", "/api/v1/auth/login", "/docs", "/swagger-ui/**", "/v3/api-docs/**").permitAll().anyRequest().authenticated())
+            .authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.POST,"/api/v1/users","/api/v1/notifications").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/roles").permitAll()
+                .requestMatchers("/api/v1/health", "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/forgot-password", "/api/v1/auth/email-link", "/docs", "/swagger-ui/**", "/v3/api-docs/**").permitAll().anyRequest().authenticated())
             .oauth2ResourceServer(o -> o.jwt(j -> {}).authenticationEntryPoint((req,res,e) -> {
                 res.setStatus(401); res.setContentType("application/json"); res.getWriter().write("{\"detail\":\"Invalid or expired token\"}");
             }))
@@ -45,7 +47,7 @@ public class SecurityConfig {
     }
     @Bean CorsConfigurationSource corsConfigurationSource() {
         var c = new CorsConfiguration(); c.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
-        c.setAllowedMethods(List.of("GET", "POST", "PATCH")); c.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        c.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "HEAD", "OPTIONS")); c.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         var source = new UrlBasedCorsConfigurationSource(); source.registerCorsConfiguration("/**", c); return source;
     }
 }
