@@ -196,7 +196,7 @@ function App() {
   const [filters, setFilters] = useState({ q: '', role: '', status: '' })
   const [notice, setNotice] = useState('')
 
-  function signOut() {
+  function clearSession() {
     sessionStorage.removeItem('core_token')
     setToken(null)
     setUser(null)
@@ -207,10 +207,21 @@ function App() {
     setError('')
   }
 
+  async function signOut() {
+    try {
+      if (token) await api('/auth/logout', token, { method: 'POST' })
+      clearSession()
+    } catch (err) {
+      if (err.status === 401) clearSession()
+      else setNotice('Could not sign out. Please retry: ' + err.message)
+    }
+  }
+
+
   useEffect(() => {
     if (!token) { setBooting(false); return }
     let active = true
-    api('/me', token).then(data => { if (active) { setUser(data); setPage(data.role === 'Administrator' ? 'dashboard' : 'home') } }).catch(() => { if (active) signOut() }).finally(() => { if (active) setBooting(false) })
+    api('/me', token).then(data => { if (active) { setUser(data); setPage(data.role === 'Administrator' ? 'dashboard' : 'home') } }).catch(() => { if (active) clearSession() }).finally(() => { if (active) setBooting(false) })
     return () => { active = false }
   }, [token])
 
@@ -243,7 +254,7 @@ function App() {
         if (page === 'status') { const data = await api('/health', token); if (active) setHealth(data) }
       } catch (err) {
         if (active) {
-          if (err.status === 401) signOut()
+          if (err.status === 401) clearSession()
           else setError(err.message)
         }
       } finally { if (active) setLoadingUsers(false) }

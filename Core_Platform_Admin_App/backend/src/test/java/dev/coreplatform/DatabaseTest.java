@@ -63,4 +63,22 @@ class DatabaseTest {
         Flyway.configure().dataSource(source).baselineOnMigrate(true).baselineVersion("0").load().migrate();
         assertEquals("old-hash", users.findByEmail("legacy@test.edu").get("password_hash"));
     }
+
+    @Test void sessionValidationBindsUserAndHonorsExactIdleBoundary() {
+        var db = database();
+        var users = new JdbcUserRepository(db);
+        users.create("Alice", "alice@test.edu", "Faculty", null, "CS", "hash", "Active");
+        long id = ((Number)users.findByEmail("alice@test.edu").get("id")).longValue();
+        var sessions = new JdbcSessionRepository(db);
+        var start = java.time.Instant.parse("2026-11-09T18:00:00Z");
+        sessions.create("session-one", id, start, start.plusSeconds(28800));
+        var active = start.plusSeconds(1740);
+        assertFalse(sessions.touchIfValid("session-one", id + 1, active, active.minusSeconds(1800)));
+        assertTrue(sessions.touchIfValid("session-one", id, active, active.minusSeconds(1800)));
+        var boundary = active.plusSeconds(1800);
+        assertFalse(sessions.touchIfValid("session-one", id, boundary, boundary.minusSeconds(1800)));
+        sessions.create("session-two", id, start, start.plusSeconds(28800));
+        sessions.revoke("session-two", id, start.plusSeconds(10));
+        assertFalse(sessions.touchIfValid("session-two", id, start.plusSeconds(20), start.minusSeconds(1780)));
+    }
 }

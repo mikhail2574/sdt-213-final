@@ -12,9 +12,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 public class CoreApi {
     private final CoreService core;
-    public CoreApi(CoreService core) { this.core = core; }
+    private final AuthService auth;
+    public CoreApi(CoreService core, AuthService auth) { this.core = core; this.auth = auth; }
     @GetMapping("/health") public Map<String, String> health() { return core.health(); }
-    @PostMapping("/auth/login") public Map<String, Object> login(@Valid @RequestBody CoreService.Login body) { return core.login(body); }
+    @PostMapping("/auth/login") public Map<String, Object> login(@Valid @RequestBody AuthService.Login body) { return auth.login(body); }
+    @PostMapping("/auth/logout") public ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) { auth.logout(jwt); return ResponseEntity.noContent().build(); }
     @GetMapping("/me") public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) { return core.me(jwt); }
     @GetMapping("/admin/dashboard") public Map<String, Object> dashboard(@AuthenticationPrincipal Jwt jwt) { return core.dashboard(jwt); }
     @GetMapping("/admin/users") public List<Map<String, Object>> users(@AuthenticationPrincipal Jwt jwt,

@@ -23,11 +23,14 @@ public class SecurityConfig {
             throw new IllegalStateException("Set JWT_SECRET to a private value of at least 32 bytes");
         return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
+    @Bean java.time.Clock clock() { return java.time.Clock.systemUTC(); }
     @Bean BCryptPasswordEncoder passwords() { return new BCryptPasswordEncoder(12); }
     @Bean JwtEncoder encoder(SecretKeySpec key) { return new NimbusJwtEncoder(new ImmutableSecret<>(key)); }
-    @Bean JwtDecoder decoder(SecretKeySpec key) {
+    @Bean JwtDecoder decoder(SecretKeySpec key, SessionValidator sessions, java.time.Clock clock) {
         var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        decoder.setJwtValidator(new JwtTimestampValidator(java.time.Duration.ZERO));
+        var timestamps = new JwtTimestampValidator(java.time.Duration.ZERO);
+        timestamps.setClock(clock);
+        decoder.setJwtValidator(new org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator<>(timestamps, sessions));
         return decoder;
     }
     @Bean SecurityFilterChain security(HttpSecurity http) throws Exception {

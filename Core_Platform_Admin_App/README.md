@@ -6,7 +6,7 @@ A foundation for the SDT-213 Core Platform & Admin project, Phase II.
 
 - Frontend: JavaScript, React 19, HTML5/CSS3, Vite 7
 - Backend: Java 17+, Spring Boot, Spring Security, JDBC, MySQL 8.4
-- Authentication: BCrypt password hashes, JWT (30-minute absolute expiration)
+- Authentication: BCrypt password hashes, JWT with SQL-backed sessions (30-minute inactivity timeout, 8-hour maximum lifetime)
 - API documentation: Springdoc OpenAPI/Swagger at `http://127.0.0.1:8000/docs`
 
 **NFR13 technology stack:** The backend uses Java with Spring Boot and Spring Security, backed by MySQL.
@@ -54,7 +54,7 @@ All demo accounts and passwords are **development-only**.
 
 | Requirement                 | Current implementation                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------ |
-| FR1                         | Shared sign-in for six seeded accounts; sign-out clears the client token.                        |
+| FR1                         | Shared sign-in for six seeded accounts; sign-out revokes the SQL session and clears the client token.                        |
 | FR5                         | Five failed logins trigger 15-minute lockout; events recorded in database.                       |
 | FR7, NFR3                   | Role-sensitive navigation **and** server-side authorization.                                     |
 | FR8                         | Dashboard: total / active / administrator / pending user counters, recent audit entries.         |
@@ -65,7 +65,7 @@ All demo accounts and passwords are **development-only**.
 | FR33, FR34 (partial)        | Immutable-by-API audit entries (login failures and user changes); latest 100 entries for admins. |
 | FR31 (partial)              | Health check for the **Core API only**.                                                          |
 | NFR6 (partial)              | BCrypt hashed passwords. HTTPS must be configured at deployment.                                 |
-| NFR7 (partial)              | JWT expires after 30 minutes **from sign-in**, not 30 minutes of inactivity.                     |
+| NFR7 (partial)              | SQL sessions enforce 30 minutes of inactivity; each authenticated request renews activity. JWT/session lifetime is capped at 8 hours.                     |
 | NFR13                     | Java backend with Spring Boot, Spring Security, and MySQL.                                      |
 | NFR12 (partial)             | Versioned REST JSON API at `/api/v1`, auto-generated OpenAPI docs.                               |
 | NFR1, NFR2, NFR15 (partial) | Consistent responsive layout down to 360px with labeled controls and keyboard focus.             |
@@ -76,10 +76,10 @@ All demo accounts and passwords are **development-only**.
 - Password reset and invitation email delivery, applicant self-registration + confirmation.
 - Notifications, direct messaging, announcements, reporting/CSV export, system configuration.
 - Full permission editor, self-service profile changes, service monitoring and alerts.
-- Refresh/revocation/idle-timeout token handling, persistent logout invalidation.
-- Production requirements such as HTTPS deployment, audit retention guarantees, migrations, backups, load testing and high availability.
+- Token refresh/rotation (active sessions require a new sign-in after the 8-hour maximum lifetime).
+- Production requirements such as HTTPS deployment, audit retention guarantees, backups, load testing and high availability.
 
-**Do not deploy this starter as a live university system.** Authentication/demo credentials and local development defaults are for demonstration. Audit records are not editable/deletable through the API but are not protected from database administrators. The sign-out flow does not invalidate JWTs server-side.
+**Do not deploy this starter as a live university system.** Authentication/demo credentials and local development defaults are for demonstration. Audit records are not editable/deletable through the API but are not protected from database administrators. The sign-out flow revokes the current session server-side.
 
 ## Minimal project structure
 
@@ -116,3 +116,9 @@ Controllers delegate to `CoreService`; `UserRepository` and `AuditRepository` de
 SQL migrations live in `backend/src/main/resources/db/migration`. Flyway records applied versions and validates checksums. Do not edit an applied migration; add a new version. Demo account seeding is separate (`DemoDataLoader`) and can be disabled with `SEED_DEMO=0`.
 
 For a database created by the earlier `schema.sql` starter, take a backup, confirm it contains the original `users` and `audit_entries` tables, then start once with `FLYWAY_BASELINE_ON_MIGRATE=true`. Baseline version 0 lets V1 retain the existing tables and V2 validate their data. Remove the override afterward. Invalid legacy role/status/access values must be corrected before V2 can run. Empty databases need no baseline override.
+
+## Authentication sessions (UC1, FR1/FR5, NFR7)
+
+`AuthService` coordinates sign-in, BCrypt verification, lockout counters, session creation and audit events. `SessionRepository` persists a random JWT `jti`, account ID, creation/last-activity/expiry timestamps and revocation time; it does not store raw bearer tokens. Every authenticated request verifies the active account and atomically renews a non-revoked session only while it remains within its 30-minute inactivity window and 8-hour absolute lifetime. `POST /api/v1/auth/logout` returns 204 and revokes only the caller's session. The frontend waits for this response before clearing its local session.
+
+Previously issued JWTs without a persisted session are rejected after this upgrade; sign in again. Account deactivation blocks requests immediately. Session cleanup/retention and refresh-token rotation remain future work. No real cross-module SSO/gateway is claimed by this session implementation.
