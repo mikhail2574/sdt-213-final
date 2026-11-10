@@ -16,8 +16,8 @@ class ApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate db;
-    @Autowired CoreApi api;
-    @BeforeEach void reset() { db.update("DELETE FROM audit_entries"); db.update("DELETE FROM users"); api.run(); }
+    @Autowired DemoDataLoader demo;
+    @BeforeEach void reset() { db.update("DELETE FROM audit_entries"); db.update("DELETE FROM users"); demo.run(); }
     String login(String account) throws Exception {
         var response=mvc.perform(post("/api/v1/auth/login").contentType("application/json").content("{\"email\":\""+account+"@coreplatform.dev\",\"password\":\""+account+"123\"}"))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();

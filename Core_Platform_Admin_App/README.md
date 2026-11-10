@@ -23,7 +23,7 @@ docker compose up -d --wait
 mvn spring-boot:run
 ```
 
-MySQL tables are created on startup and populated with six demo accounts when empty. Set `SEED_DEMO=0` to disable demo accounts. The Compose volume preserves data across restarts.
+Flyway applies versioned SQL migrations on startup; MySQL tables are created and populated with six demo accounts when empty. Set `SEED_DEMO=0` to disable demo accounts. The Compose volume preserves data across restarts.
 
 For an existing MySQL server, create a `core_platform` database and configure `DATABASE_URL` (a JDBC URL, e.g. `jdbc:mysql://127.0.0.1:3306/core_platform`), `DATABASE_USER`, and `DATABASE_PASSWORD`. The defaults match the development-only Compose configuration. Set `JWT_SECRET` to a private value of at least 32 bytes; `APP_ENV=production` rejects the default signing key. `PORT` defaults to 8000. Existing SQLite data is not imported automatically; this starts a new MySQL database.
 
@@ -108,3 +108,11 @@ mvn test
 ```
 
 Tests use an isolated H2 database in MySQL mode; the application uses MySQL. Run `mvn package` to build `target/core-api-1.0.0.jar`, then `java -jar target/core-api-1.0.0.jar` with MySQL running. This starter is a foundation to be expanded by the team, not a completed submission of FR1–FR37.
+
+## Database and backend layers
+
+Controllers delegate to `CoreService`; `UserRepository` and `AuditRepository` define the database boundaries, with Spring JDBC implementations. Account writes and their audit events share a transaction. User search loads rows in one query. Database constraints enforce roles, statuses, console access and nonnegative failed-attempt counts. Audit persistence exposes append/read operations only; database-level tamper protection remains a deployment concern.
+
+SQL migrations live in `backend/src/main/resources/db/migration`. Flyway records applied versions and validates checksums. Do not edit an applied migration; add a new version. Demo account seeding is separate (`DemoDataLoader`) and can be disabled with `SEED_DEMO=0`.
+
+For a database created by the earlier `schema.sql` starter, take a backup, confirm it contains the original `users` and `audit_entries` tables, then start once with `FLYWAY_BASELINE_ON_MIGRATE=true`. Baseline version 0 lets V1 retain the existing tables and V2 validate their data. Remove the override afterward. Invalid legacy role/status/access values must be corrected before V2 can run. Empty databases need no baseline override.
