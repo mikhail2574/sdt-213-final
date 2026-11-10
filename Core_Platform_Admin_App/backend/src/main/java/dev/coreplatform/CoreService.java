@@ -36,6 +36,10 @@ public class CoreService {
         var u=access.require(jwt,"dashboard.view");
         var stats=db.one("SELECT COUNT(*) AS total_users,COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END),0) AS active_accounts,COALESCE(SUM(CASE WHEN role='Administrator' THEN 1 ELSE 0 END),0) AS administrators,COALESCE(SUM(CASE WHEN status='Pending' THEN 1 ELSE 0 END),0) AS pending_reviews FROM users");
         stats.put("recent_activity",admin(u)?audit.latest(5):List.of());
+        var month=java.time.LocalDate.now(clock).withDayOfMonth(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        long added=db.count("SELECT COUNT(*) FROM users WHERE created_at>=?",java.sql.Timestamp.from(month));
+        long previous=((Number)stats.get("total_users")).longValue()-added;
+        stats.put("new_users_this_month",added); stats.put("growth_percent",previous==0?0:Math.round(added*1000.0/previous)/10.0);
         stats.put("service",Map.of("name","Core API","status","Operational")); stats.put("services",monitoring.status()); return stats;
     }
     public List<Map<String,Object>> listUsers(Jwt jwt,String q,String role,String status) {

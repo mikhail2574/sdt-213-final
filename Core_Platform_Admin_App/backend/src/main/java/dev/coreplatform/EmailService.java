@@ -40,5 +40,6 @@ public class EmailService {
                 db.write("UPDATE email_outbox SET attempts=?,next_attempt_at=? WHERE id=?",attempt,Timestamp.from(clock.instant().plusSeconds(Math.min(3600,30L*(1L<<Math.min(attempt,7))))),id);
             }
         }
+        db.write("INSERT INTO worker_heartbeats(worker,checked_at) VALUES('email',?) ON DUPLICATE KEY UPDATE checked_at=VALUES(checked_at)",Timestamp.from(clock.instant()));
     }
 }

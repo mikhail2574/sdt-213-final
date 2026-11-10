@@ -38,7 +38,7 @@ public class UserService {
     public Map<String,Object> updateProfile(Jwt jwt,Profile body) {
         var u=access.actor(jwt); long id=PlatformRepository.id(u);
         users.findByIdForUpdate(id);
-        if(body.photo_url()!=null && !body.photo_url().isEmpty() && !body.photo_url().matches("https://[^\\s]+")) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Photo URL must use HTTPS");
+        if(body.photo_url()!=null && !body.photo_url().isEmpty() && !body.photo_url().equals("/api/v1/me/photo") && !body.photo_url().matches("https://[^\\s]+")) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Photo URL must use HTTPS");
         db.write("UPDATE users SET preferred_name=COALESCE(?,preferred_name),phone=COALESCE(?,phone),personal_email=COALESCE(?,personal_email),photo_url=COALESCE(?,photo_url) WHERE id=?",body.preferred_name(),body.phone(),body.personal_email(),body.photo_url(),id);
         if(body.email_preferences()!=null) {
             if(body.email_preferences().size()>40) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Too many notification categories");

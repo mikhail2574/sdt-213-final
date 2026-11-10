@@ -18,6 +18,7 @@ public class PlatformRepository {
             var meta=rs.getMetaData();
             for(int i=1;i<=meta.getColumnCount();i++) {
                 Object v=rs.getObject(i);
+                if(v instanceof java.sql.Blob blob) { v=blob.getBytes(1,(int)blob.length()); blob.free(); }
                 row.put(meta.getColumnLabel(i).toLowerCase(Locale.ROOT),v instanceof Timestamp t?t.toInstant().toString():v);
             }
             return row;
