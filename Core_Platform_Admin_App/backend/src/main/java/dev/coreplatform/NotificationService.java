@@ -17,8 +17,10 @@ public class NotificationService {
     private final EmailService email;
     private final AuditRepository audit;
     private final Clock clock;
-    public NotificationService(PlatformRepository db,AccessService access,EmailService email,AuditRepository audit,Clock clock) {
+    private final GroupService groups;
+    public NotificationService(PlatformRepository db,AccessService access,EmailService email,AuditRepository audit,Clock clock,GroupService groups) {
         this.db=db; this.access=access; this.email=email; this.audit=audit; this.clock=clock;
+        this.groups=groups;
     }
     public record Notice(@NotBlank @Size(max=200) String title,@NotBlank @Size(max=10000) String text,
         @Pattern(regexp="[A-Za-z0-9_.-]{1,40}") String category,@Size(max=500) List<@NotNull @Positive Long> user_ids,
@@ -49,19 +51,21 @@ public class NotificationService {
         boolean ids=body.user_ids()!=null && !body.user_ids().isEmpty();
         if(ids==(body.audience()!=null)) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Supply user_ids or audience");
         if(module!=null && !ids) throw new ResponseStatusException(FORBIDDEN,"Modules must supply explicit user_ids");
+        boolean course=body.audience()!=null && body.audience().startsWith("COURSE:");
         String clause; Object[] args;
         if(ids) { clause="id IN ("+String.join(",",Collections.nCopies(body.user_ids().size(),"?"))+")"; args=body.user_ids().toArray(); }
         else if("ALL".equals(body.audience())) { clause="1=1"; args=new Object[]{}; }
         else if(body.audience().startsWith("ROLE:")) { clause="role=?"; args=new Object[]{body.audience().substring(5)}; }
         else if(body.audience().startsWith("DEPARTMENT:")) { clause="department=?"; args=new Object[]{body.audience().substring(11)}; }
-        else throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Unsupported audience; course audiences require a course-membership integration");
-        if(actor!=null && !"Administrator".equals(actor.get("role"))) {
+        else if(course) { clause="1=0"; args=new Object[]{}; }
+        else throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Unsupported audience");
+        if(actor!=null && !course && !"Administrator".equals(actor.get("role"))) {
             if(!"Staff".equals(actor.get("role")) || !Objects.equals(body.audience(),"DEPARTMENT:"+actor.get("department"))) throw new ResponseStatusException(FORBIDDEN,"Audience is outside your permitted scope");
         }
         String category=body.category()==null?"announcements":body.category();
         String channel=body.channel()==null?"in_app":body.channel();
         String source=module==null?"core":module;
-        var recipients=db.rows("SELECT id,email FROM users WHERE status='Active' AND "+clause,args);
+        var recipients=course?groups.announcementRecipients(actor,body.audience().substring(7)):db.rows("SELECT id,email FROM users WHERE status='Active' AND "+clause,args);
         if(ids && recipients.size()!=new HashSet<>(body.user_ids()).size()) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"One or more recipients do not exist or are inactive");
         // One preference query and batched inserts; no per-recipient database reads.
         Set<Long> optedOut=new HashSet<>();
@@ -80,5 +84,13 @@ public class NotificationService {
             var u=db.one("SELECT email FROM users WHERE id=?",user);
             if(u!=null) email.enqueue((String)u.get("email"),title,text);
         }
+    }
+    public void notifyMany(Set<Long> ids,String source,String category,String title,String text) {
+        if(ids.isEmpty()) return;
+        String marks=String.join(",",Collections.nCopies(ids.size(),"?"));
+        var args=new ArrayList<Object>(); args.add(category); args.addAll(ids);
+        var recipients=db.rows("SELECT u.id,u.email,COALESCE(p.email_enabled,TRUE) AS email_enabled FROM users u LEFT JOIN notification_preferences p ON p.user_id=u.id AND p.category=? WHERE u.status='Active' AND u.id IN ("+marks+")",args.toArray());
+        db.batch("INSERT INTO notifications(user_id,source,category,title,text) VALUES(?,?,?,?,?)",recipients.stream().map(u->new Object[]{u.get("id"),source,category,title,text}).toList());
+        db.batch("INSERT INTO email_outbox(recipient,subject,body) VALUES(?,?,?)",recipients.stream().filter(u->Boolean.TRUE.equals(u.get("email_enabled"))).map(u->new Object[]{u.get("email"),title,text}).toList());
     }
 }
