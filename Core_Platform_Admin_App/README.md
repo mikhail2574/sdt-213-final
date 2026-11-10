@@ -31,6 +31,14 @@ Then open:
 http://localhost:8080
 ```
 
+## Tests
+
+The browser logic has a dependency-free Node.js test suite. From this folder, run:
+
+```bash
+npm test
+```
+
 ## Demo credentials
 
 Passwords follow the `role123` pattern:

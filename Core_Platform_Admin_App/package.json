@@ -1,0 +1,7 @@
+{
+  "name": "core-platform-admin-app",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}
