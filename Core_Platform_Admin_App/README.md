@@ -1,131 +1,111 @@
-# Core Platform & Admin — starter app
+# Core Platform & Admin
 
-A foundation for the SDT-213 Core Platform & Admin project, Phase II.
+Spring Boot REST backend for the SDT-213 university platform, with the original React prototype.
+Requirements and implementation coverage: [BACKEND_DESIGN.md](BACKEND_DESIGN.md).
 
-## Stack
+## Stack and local start
 
-- Frontend: JavaScript, React 19, HTML5/CSS3, Vite 7
-- Backend: Java 17+, Spring Boot, Spring Security, JDBC, MySQL 8.4
-- Authentication: BCrypt password hashes, JWT with SQL-backed sessions (30-minute inactivity timeout, 8-hour maximum lifetime)
-- API documentation: Springdoc OpenAPI/Swagger at `http://127.0.0.1:8000/docs`
+Java 17+ **JDK**, Maven 3.6.3+, MySQL 8.4; React 19 / Vite 7 with Node 20.19+ or 22.12+.
 
-**NFR13 technology stack:** The backend uses Java with Spring Boot and Spring Security, backed by MySQL.
-
-## Run locally
-
-Requires Node.js 20.19+ or 22.12+ and Java 17+, Maven 3.6.3+, and Docker Compose (or an existing MySQL 8.4 server).
-
-### 1) Start the Java backend
-
-```bash
+```sh
 cd backend
 docker compose up -d --wait
 mvn spring-boot:run
 ```
 
-Flyway applies versioned SQL migrations on startup; MySQL tables are created and populated with six demo accounts when empty. Set `SEED_DEMO=0` to disable demo accounts. The Compose volume preserves data across restarts.
+In a second terminal:
 
-For an existing MySQL server, create a `core_platform` database and configure `DATABASE_URL` (a JDBC URL, e.g. `jdbc:mysql://127.0.0.1:3306/core_platform`), `DATABASE_USER`, and `DATABASE_PASSWORD`. The defaults match the development-only Compose configuration. Set `JWT_SECRET` to a private value of at least 32 bytes; `APP_ENV=production` rejects the default signing key. `PORT` defaults to 8000. Existing SQLite data is not imported automatically; this starts a new MySQL database.
-
-### 2) Start React + Vite (second terminal)
-
-```bash
+```sh
 cd frontend
 npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. Vite proxies `/api` requests to Spring Boot at `http://127.0.0.1:8000`.
+Frontend: http://127.0.0.1:5173. Backend: http://127.0.0.1:8000.
+Swagger: http://127.0.0.1:8000/docs; OpenAPI: `/v3/api-docs`.
+Vite proxies `/api` to the backend. API base: `/api/v1`.
 
-### Demo logins
+## Demo accounts
 
-| Role             | Email                        | Password       |
-| ---------------- | ---------------------------- | -------------- |
-| Administrator    | `admin@coreplatform.dev`     | `admin123`     |
-| Student          | `student@coreplatform.dev`   | `student123`   |
-| Faculty          | `faculty@coreplatform.dev`   | `faculty123`   |
-| Staff / Operator | `staff@coreplatform.dev`     | `staff123`     |
-| Staff / Viewer   | `viewer@coreplatform.dev`    | `viewer123`    |
-| Applicant        | `applicant@coreplatform.dev` | `applicant123` |
+| Role | Email | Password |
+| --- | --- | --- |
+| Administrator | admin@coreplatform.dev | admin123 |
+| Student | student@coreplatform.dev | student123 |
+| Faculty | faculty@coreplatform.dev | faculty123 |
+| Staff / Operator | staff@coreplatform.dev | staff123 |
+| Staff / Viewer | viewer@coreplatform.dev | viewer123 |
+| Applicant | applicant@coreplatform.dev | applicant123 |
 
-All demo accounts and passwords are **development-only**.
+Demo accounts are for local development. Set `SEED_DEMO=0` to disable seeding.
+Set `JWT_SECRET` to a private value of at least 32 bytes; `APP_ENV=production` rejects the default.
 
-## Implemented now
+## Backend features
 
-| Requirement                 | Current implementation                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------ |
-| FR1                         | Shared sign-in for six seeded accounts; sign-out revokes the SQL session and clears the client token.                        |
-| FR4                         | Change own password from My Profile; validate current password, confirmation and password rules; revoke all prior sessions. |
-| FR5                         | Five failed logins trigger 15-minute lockout; events recorded in database.                       |
-| FR7, NFR3                   | Role-sensitive navigation **and** server-side authorization.                                     |
-| FR8                         | Dashboard: total / active / administrator / pending user counters, recent audit entries.         |
-| FR9, FR10                   | Searchable user list, role and status filters.                                                   |
-| FR11 (partial)              | Add a user as `Pending`. **No invitation email is sent.**                                        |
-| FR12, FR13, FR20 (partial)  | Edit name / department / status; administrators can change role and console access.              |
-| FR19 (partial)              | Read-only role overview.                                                                         |
-| FR33, FR34 (partial)        | Immutable-by-API audit entries (login failures and user changes); latest 100 entries for admins. |
-| FR31 (partial)              | Health check for the **Core API only**.                                                          |
-| NFR6 (partial)              | BCrypt hashed passwords. HTTPS must be configured at deployment.                                 |
-| NFR7 (partial)              | SQL sessions enforce 30 minutes of inactivity; each authenticated request renews activity. JWT/session lifetime is capped at 8 hours.                     |
-| NFR13                     | Java backend with Spring Boot, Spring Security, and MySQL.                                      |
-| NFR12 (partial)             | Versioned REST JSON API at `/api/v1`, auto-generated OpenAPI docs.                               |
-| NFR1, NFR2, NFR15 (partial) | Consistent responsive layout down to 360px with labeled controls and keyboard focus.             |
+- BCrypt sign-in, configurable lockout, persistent revocable JWT sessions, sign-out and password change.
+- Applicant registration/confirmation, expiring single-use reset/invitation links, SMTP outbox/retry.
+- Profile editing, email preferences, paginated user management and scoped public directory.
+- Database permissions, protected role assignments and last-administrator checks.
+- Scoped SIS account synchronization through server-only module credentials.
+- Notifications, read state, announcement fan-out, course and office groups, and scoped message history.
+- Atomic settings and module switches, background module health snapshots and administrator alerts.
+- Filtered audit history and CSV; durable ordered audit queue, MySQL immutability triggers, report aggregation with explicit missing-module data and CSV.
+- Configured module proxy with timeouts, bounded payloads and editable route permissions.
+- One-time module launch tickets, module-bound tokens and module-side token introspection.
+- Validated private profile photo storage and internal subsystem health probes.
 
-## Not implemented (later phases)
+The React UI remains a prototype and does not expose all backend workflows. Use the versioned API
+or Swagger for registration, recovery, groups, announcements, reports and settings.
+The existing `/admin/users` routes stay compatible; new consumers should use paginated `/users`.
 
-- Real SSO between modules, full API gateway, integration with LMS/SIS/Scheduling/Admissions.
-- Password reset and invitation email delivery, applicant self-registration + confirmation.
-- Notifications, direct messaging, announcements, reporting/CSV export, system configuration.
-- Full permission editor, self-service profile changes, service monitoring and alerts.
-- Token refresh/rotation (active sessions require a new sign-in after the 8-hour maximum lifetime).
-- Production requirements such as HTTPS deployment, audit retention guarantees, backups, load testing and high availability.
+## Configuration
 
-**Do not deploy this starter as a live university system.** Authentication/demo credentials and local development defaults are for demonstration. Audit records are not editable/deletable through the API but are not protected from database administrators. The sign-out flow revokes the current session server-side.
+`DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` configure an existing MySQL database.
+The defaults match `backend/compose.yaml`; `PORT` defaults to 8000.
 
-## Minimal project structure
+Email is **queued but not delivered by default**. For local email testing:
 
-```text
-Core_Platform_Admin_App/
-├── backend/
-│   ├── pom.xml            # Maven dependencies and executable JAR
-│   ├── compose.yaml       # Local MySQL server
-│   └── src/
-│       ├── main/java/dev/coreplatform/  # API, authentication, error handling
-│       ├── main/resources/             # Configuration and database schema
-│       └── test/java/dev/coreplatform/ # API regression tests
-└── frontend/
-    ├── src/
-    │   ├── main.jsx       # Pages, forms, API calls
-    │   └── styles.css
-    ├── vite.config.js
-    └── package.json
+```sh
+cd backend
+docker compose --profile mail up -d
 ```
 
-## Test the backend
+Set `MAIL_ENABLED=true`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` before starting Spring Boot.
+View captured email at http://127.0.0.1:8025 ([Mailpit Docker documentation](https://mailpit.axllent.org/docs/install/docker/)). `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_AUTH` and
+`SMTP_STARTTLS` configure a real SMTP provider. Sender address is in platform settings.
+`EMAIL_LINK_BASE` defaults to `http://127.0.0.1:5173/email-link`; the React prototype
+has no email-link screen, so redeem captured tokens via `POST /api/v1/auth/email-link`.
+Never expose the outbox through a public API.
 
-```bash
+For each of `SIS`, `LMS`, `SCHEDULING`, `ADMISSIONS`, set `<CODE>_MODULE_URL` and a distinct
+random `<CODE>_MODULE_KEY` on trusted servers. Empty keys authorize nobody. Module keys are
+accepted on documented server integration routes, including group synchronization, token exchange and
+introspection. They must never be placed in frontend code. Set `<CODE>_MODULE_WEB_URL` to the
+HTTPS landing page for one-time module launch. Adapter contracts are in BACKEND_DESIGN.md.
+
+## Migrations and tests
+
+Flyway validates and applies migrations V1-V8 on startup (V7 is MySQL-specific). Add a new migration instead of editing
+an applied version. Demo data loads separately, only when the users table is empty.
+
+For databases created by the old `schema.sql` prototype: back up first, confirm the original
+`users`/`audit_entries` tables, then start once with `FLYWAY_BASELINE_ON_MIGRATE=true` (baseline 0).
+Remove the override afterward. Invalid legacy role/status/access data must be fixed before V2.
+
+```sh
 cd backend
 mvn test
+mvn package
 ```
 
-Tests use an isolated H2 database in MySQL mode; the application uses MySQL. Run `mvn package` to build `target/core-api-1.0.0.jar`, then `java -jar target/core-api-1.0.0.jar` with MySQL running. This starter is a foundation to be expanded by the team, not a completed submission of FR1–FR37.
+Tests use isolated H2 databases in MySQL mode. MySQL 8.4 migration and trigger checks, real
+SMTP/module integration and load testing remain necessary before deployment. Previously issued
+JWTs without persisted SQL sessions are rejected; sign in again.
 
-## Database and backend layers
+## Remaining requirements
 
-Controllers delegate to `CoreService`; `UserRepository` and `AuditRepository` define the database boundaries, with Spring JDBC implementations. Account writes and their audit events share a transaction. User search loads rows in one query. Database constraints enforce roles, statuses, console access and nonnegative failed-attempt counts. Audit persistence exposes append/read operations only; database-level tamper protection remains a deployment concern.
-
-SQL migrations live in `backend/src/main/resources/db/migration`. Flyway records applied versions and validates checksums. Do not edit an applied migration; add a new version. Demo account seeding is separate (`DemoDataLoader`) and can be disabled with `SEED_DEMO=0`.
-
-For a database created by the earlier `schema.sql` starter, take a backup, confirm it contains the original `users` and `audit_entries` tables, then start once with `FLYWAY_BASELINE_ON_MIGRATE=true`. Baseline version 0 lets V1 retain the existing tables and V2 validate their data. Remove the override afterward. Invalid legacy role/status/access values must be corrected before V2 can run. Empty databases need no baseline override.
-
-## Authentication sessions (UC1, FR1/FR5, NFR7)
-
-`AuthService` coordinates sign-in, BCrypt verification, lockout counters, session creation and audit events. `SessionRepository` persists a random JWT `jti`, account ID, creation/last-activity/expiry timestamps and revocation time; it does not store raw bearer tokens. Every authenticated request verifies the active account and atomically renews a non-revoked session only while it remains within its 30-minute inactivity window and 8-hour absolute lifetime. `POST /api/v1/auth/logout` returns 204 and revokes only the caller's session. The frontend waits for this response before clearing its local session.
-
-Previously issued JWTs without a persisted session are rejected after this upgrade; sign in again. Account deactivation blocks requests immediately. Session cleanup/retention and refresh-token rotation remain future work. No real cross-module SSO/gateway is claimed by this session implementation.
-
-## Change own password (UC3, FR4)
-
-Open **My Profile**, enter the current password, the new password and its confirmation, then select **Update password**. A new password requires at least eight characters, a letter and a number; BCrypt input is limited to 72 UTF-8 bytes. A wrong current password or mismatched/invalid confirmation leaves the hash unchanged. A successful change updates the BCrypt hash, resets failed sign-in counters, revokes all existing sessions and records `Changed password` in the audit log within one database transaction. The UI returns to sign-in with a confirmation message.
-
-Backend contract: `POST /api/v1/auth/change-password` with a bearer token and JSON fields `current_password`, `new_password`, `confirm_password`; success is 204. A wrong current password returns 400; invalid fields or password rules return 422; an expired/revoked/inactive session returns 401. Forgotten-password/email reset is a separate use case and is not implemented here.
+The REST API implements the specified local workflows. Production integration still requires other
+teams to implement and agree the module adapters, trust the introspection contract, provision distinct
+module keys and URLs, and verify course ownership end to end. The React prototype needs dedicated
+screens for the newer workflows. Deployment must provide HTTPS, ingress rate limits, secure secrets,
+scheduled encrypted backups and restore drills, plus availability and performance validation. See
+BACKEND_DESIGN.md for the use-case traceability and precise limits of the implementation.

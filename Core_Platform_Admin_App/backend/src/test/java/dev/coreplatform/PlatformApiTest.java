@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:platform;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE","spring.datasource.username=sa","spring.datasource.password=","app.seed-demo=1","app.modules.sis.key=test-sis-key","app.modules.lms.key=test-lms-key","app.monitor-initial-ms=3600000","app.mail-enabled=true","app.mail-initial-ms=3600000"})
+@SpringBootTest(properties={"app.audit-async=false","spring.datasource.url=${TEST_DATABASE_URL:jdbc:h2:mem:platform;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}","spring.datasource.username=${TEST_DATABASE_USER:sa}","spring.datasource.password=${TEST_DATABASE_PASSWORD:}","app.seed-demo=1","app.modules.sis.key=test-sis-key","app.modules.lms.key=test-lms-key","app.modules.lms.web-url=http://127.0.0.1:5174/module","app.monitor-initial-ms=3600000","app.mail-enabled=true","app.mail-initial-ms=3600000"})
 @AutoConfigureMockMvc
 class PlatformApiTest {
     @Autowired MockMvc mvc;
@@ -28,7 +28,7 @@ class PlatformApiTest {
     @Autowired MonitoringService monitoring;
     @org.springframework.test.context.bean.override.mockito.MockitoBean org.springframework.mail.javamail.JavaMailSender mail;
     @BeforeEach void reset() {
-        db.update("DELETE FROM users"); db.update("DELETE FROM audit_entries"); db.update("DELETE FROM email_outbox");
+        db.update("DELETE FROM group_threads"); db.update("DELETE FROM contact_groups"); db.update("DELETE FROM audit_queue"); db.update("DELETE FROM users"); db.update("TRUNCATE TABLE audit_entries"); db.update("DELETE FROM email_outbox");
         db.update("DELETE FROM announcements"); db.update("DELETE FROM service_status");
         db.update("UPDATE connected_modules SET enabled=TRUE");
         db.update("UPDATE platform_settings SET min_password_length=8,session_timeout=30,lockout_attempts=5");
@@ -163,6 +163,7 @@ class PlatformApiTest {
     @Test void smtpFailureIsRetriedWithoutLosingNotification() {
         org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("Unavailable")).when(mail).send(org.mockito.ArgumentMatchers.any(org.springframework.mail.SimpleMailMessage.class));
         email.enqueue("student@coreplatform.dev","Test","Test body");
+        db.update("UPDATE email_outbox SET next_attempt_at=?",Timestamp.from(Instant.now().minusSeconds(1)));
         email.deliver();
         assertEquals(1,db.queryForObject("SELECT attempts FROM email_outbox",Integer.class));
         assertNull(db.queryForObject("SELECT sent_at FROM email_outbox",Timestamp.class));
@@ -193,6 +194,7 @@ class PlatformApiTest {
         }
     }
     @Test void boundedRequestsAndDocumentedSecuritySchemes() throws Exception {
+        mvc.perform(get("/api/v1/health/readiness")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ready"));
         mvc.perform(post("/api/v1/users").contentType("application/json").content(new byte[1048577])).andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.detail").exists());
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer")).andExpect(jsonPath("$.components.securitySchemes.moduleKey.name").value("X-Module-Key"));
     }
@@ -203,6 +205,79 @@ class PlatformApiTest {
         assertEquals(4,notices);
         monitoring.checkAll();
         assertEquals(notices,db.queryForObject("SELECT COUNT(*) FROM notifications WHERE user_id=? AND category='system'",Integer.class,id("admin")));
-        mvc.perform(get("/api/v1/admin/dashboard").header("Authorization",login("admin"))).andExpect(jsonPath("$.services.length()").value(5));
+        mvc.perform(get("/api/v1/admin/dashboard").header("Authorization",login("admin"))).andExpect(jsonPath("$.services.length()").value(11));
+    }
+    @Test void courseOwnershipAndMembershipAreCheckedOnEveryRequest() throws Exception {
+        String faculty=login("faculty"),student=login("student"),staff=login("staff");
+        String group=json.writeValueAsString(Map.of("title","SDT 213","group_type","COURSE","owner_id",id("faculty"),"member_ids",List.of(id("student"))));
+        mvc.perform(put("/api/v1/integrations/groups/SDT213").header("X-Module-Key","test-lms-key").contentType("application/json").content(group)).andExpect(status().isOk());
+        String notice=json.writeValueAsString(Map.of("title","Course announcement","text","Deadline tomorrow","audience","COURSE:SDT213"));
+        mvc.perform(post("/api/v1/notifications").header("Authorization",faculty).contentType("application/json").content(notice)).andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/notifications").header("Authorization",student).contentType("application/json").content(notice)).andExpect(status().isForbidden());
+        String message=mvc.perform(post("/api/v1/messages").header("Authorization",faculty).contentType("application/json").content("{\"group_code\":\"SDT213\",\"text\":\"Welcome class\"}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long thread=json.readTree(message).get("conversation_id").asLong();
+        mvc.perform(get("/api/v1/conversations/"+thread+"/messages").header("Authorization",student)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/conversations/"+thread+"/messages").header("Authorization",staff)).andExpect(status().isNotFound());
+        mvc.perform(put("/api/v1/integrations/groups/SDT213").header("X-Module-Key","test-sis-key").contentType("application/json").content(group)).andExpect(status().isForbidden());
+        var revised=(ObjectNode)json.readTree(group); revised.putArray("member_ids");
+        mvc.perform(put("/api/v1/integrations/groups/SDT213").header("X-Module-Key","test-lms-key").contentType("application/json").content(json.writeValueAsString(revised))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/conversations/"+thread+"/messages").header("Authorization",student)).andExpect(status().isNotFound());
+    }
+    @Test void officeRequestersCannotReadEachOthersConversations() throws Exception {
+        String admin=login("admin"),student=login("student"),faculty=login("faculty"),staff=login("staff");
+        String group=json.writeValueAsString(Map.of("title","Registrar","group_type","OFFICE","owner_id",id("staff"),"member_ids",List.of(id("staff"))));
+        mvc.perform(put("/api/v1/integrations/groups/registrar").header("Authorization",admin).contentType("application/json").content(group)).andExpect(status().isOk());
+        var request=post("/api/v1/messages").contentType("application/json").content("{\"group_code\":\"registrar\",\"text\":\"Help with my record\"}");
+        String a=mvc.perform(request.header("Authorization",student)).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long first=json.readTree(a).get("conversation_id").asLong();
+        String b=mvc.perform(post("/api/v1/messages").header("Authorization",faculty).contentType("application/json").content("{\"group_code\":\"registrar\",\"text\":\"Another request\"}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long second=json.readTree(b).get("conversation_id").asLong(); assertNotEquals(first,second);
+        mvc.perform(get("/api/v1/conversations/"+second+"/messages").header("Authorization",student)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/conversations/"+first+"/messages").header("Authorization",staff)).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/messages").header("Authorization",staff).contentType("application/json").content(json.writeValueAsString(Map.of("conversation_id",first,"text","We can help")))).andExpect(status().isCreated());
+    }
+    @Test void introspectionRejectsRevokedSessionsAndRoutesEnforceSpecificPermissions() throws Exception {
+        String student=login("student"),admin=login("admin");
+        String body=json.writeValueAsString(Map.of("token",student.substring(7)));
+        mvc.perform(post("/api/v1/auth/introspect").header("X-Module-Key","test-lms-key").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.active").value(true));
+        String original=mvc.perform(get("/api/v1/admin/gateway-policies").header("Authorization",admin)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var policies=(ArrayNode)json.readTree(original); policies.addObject().put("module_code","lms").put("path_prefix","/restricted").put("http_method","GET").put("permission","users.view");
+        try {
+            mvc.perform(put("/api/v1/admin/gateway-policies").header("Authorization",admin).contentType("application/json").content(json.writeValueAsString(policies))).andExpect(status().isOk());
+            mvc.perform(get("/api/v1/modules/lms/restricted/records").header("Authorization",student)).andExpect(status().isForbidden());
+            mvc.perform(post("/api/v1/modules/lms/records").header("Authorization",login("viewer")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
+        } finally { mvc.perform(put("/api/v1/admin/gateway-policies").header("Authorization",admin).contentType("application/json").content(original)).andExpect(status().isOk()); }
+        mvc.perform(post("/api/v1/auth/logout").header("Authorization",student)).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/auth/introspect").header("X-Module-Key","test-lms-key").contentType("application/json").content(body)).andExpect(jsonPath("$.active").value(false));
+    }
+    @Test void profilePhotoIsPrivateAndValidated() throws Exception {
+        String student=login("student"),faculty=login("faculty");
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jV2kAAAAASUVORK5CYII=");
+        mvc.perform(post("/api/v1/me/photo").header("Authorization",student).contentType("image/png").content(png)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/me/photo").header("Authorization",student)).andExpect(status().isOk()).andExpect(content().bytes(png));
+        mvc.perform(get("/api/v1/me/photo").header("Authorization",faculty)).andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/me/photo").header("Authorization",student).contentType("image/png").content(new byte[]{1,2,3})).andExpect(status().isUnprocessableEntity());
+    }
+    @Test void moduleTicketIsSingleUseScopedAndRevokedWithSession() throws Exception {
+        String student=login("student");
+        String launch=mvc.perform(post("/api/v1/auth/module-ticket").header("Authorization",student).contentType("application/json").content("{\"code\":\"lms\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.expires_in").value(60)).andReturn().getResponse().getContentAsString();
+        String url=json.readTree(launch).get("launch_url").asText();
+        assertTrue(url.startsWith("http://127.0.0.1:5174/module?sso_ticket="));
+        String ticket=url.substring(url.indexOf("sso_ticket=")+11);
+        String body=json.writeValueAsString(Map.of("ticket",ticket));
+        mvc.perform(post("/api/v1/auth/module-exchange").header("X-Module-Key","test-sis-key").contentType("application/json").content(body)).andExpect(status().isBadRequest());
+        String exchanged=mvc.perform(post("/api/v1/auth/module-exchange").header("X-Module-Key","test-lms-key").contentType("application/json").content(body))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.module").value("lms")).andReturn().getResponse().getContentAsString();
+        String moduleToken=json.readTree(exchanged).get("access_token").asText();
+        mvc.perform(post("/api/v1/auth/module-exchange").header("X-Module-Key","test-lms-key").contentType("application/json").content(body)).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+moduleToken)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/introspect").header("X-Module-Key","test-lms-key").contentType("application/json").content(json.writeValueAsString(Map.of("token",moduleToken))))
+            .andExpect(jsonPath("$.active").value(true));
+        mvc.perform(post("/api/v1/auth/introspect").header("X-Module-Key","test-sis-key").contentType("application/json").content(json.writeValueAsString(Map.of("token",moduleToken))))
+            .andExpect(jsonPath("$.active").value(false));
+        mvc.perform(post("/api/v1/auth/logout").header("Authorization",student)).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/auth/introspect").header("X-Module-Key","test-lms-key").contentType("application/json").content(json.writeValueAsString(Map.of("token",moduleToken))))
+            .andExpect(jsonPath("$.active").value(false));
     }
 }
