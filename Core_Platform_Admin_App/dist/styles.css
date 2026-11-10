@@ -47,6 +47,8 @@ input:focus, select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgb
 .button--secondary { color: var(--ink); background: #fff; border-color: var(--line); box-shadow: none; }
 .button--wide { width: 100%; }
 .demo-note { margin-top: 20px; color: var(--muted); font-size: 13px; }
+.auth-links { display: flex; justify-content: space-between; gap: 16px; margin-top: 16px; font-size: 13px; }
+code { padding: 2px 5px; border-radius: 4px; color: var(--navy); background: var(--blue-soft); }
 .signal-card { position: absolute; display: flex; align-items: center; gap: 15px; min-width: 270px; padding: 20px 22px; color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 15px; background: rgba(255,255,255,.11); backdrop-filter: blur(16px); box-shadow: 0 24px 70px rgba(0,0,0,.22); }
 .signal-card strong, .signal-card small { display: block; }
 .signal-card small { margin-top: 4px; color: rgba(255,255,255,.68); }
@@ -148,6 +150,24 @@ tr:last-child td { border-bottom: 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 5px; }
 .toast { position: fixed; right: 28px; bottom: 28px; transform: translateY(24px); opacity: 0; pointer-events: none; border-radius: 10px; padding: 13px 16px; color: #fff; background: var(--navy); box-shadow: var(--shadow); font-size: 14px; font-weight: 700; transition: .2s ease; }
 .toast.is-visible { transform: translateY(0); opacity: 1; }
+.muted-copy { color: var(--muted); line-height: 1.65; }
+.card-list { display: grid; gap: 12px; }
+.list-card { display: flex; align-items: center; gap: 16px; }
+.list-card > div { flex: 1; }
+.list-card h3 { margin: 0 0 5px; font-size: 15px; }
+.list-card p { margin: 0; color: var(--muted); }
+.list-card small { color: var(--muted); white-space: nowrap; }
+.portal-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.portal-tile { display: grid; gap: 10px; min-height: 145px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #fff; text-align: left; box-shadow: 0 8px 28px rgba(28,48,62,.045); }
+.portal-tile:hover { border-color: #8fcac6; transform: translateY(-2px); }
+.portal-tile strong { font-size: 15px; }
+.portal-tile small { color: var(--muted); }
+.settings-form { display: grid; gap: 17px; max-width: 680px; }
+.settings-form hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--line); }
+.settings-form h3 { margin: 0; }
+.progress-track { height: 12px; overflow: hidden; border-radius: 99px; background: var(--line); }
+.progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--teal); }
+.status-steps { display: flex; justify-content: space-between; gap: 15px; margin-top: 16px; color: var(--muted); font-size: 13px; }
 
 @media (max-width: 1050px) {
   .login-screen { grid-template-columns: 1fr; }
@@ -156,6 +176,7 @@ tr:last-child td { border-bottom: 0; }
   .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid { grid-template-columns: 1fr; }
   .role-grid { grid-template-columns: 1fr; }
+  .portal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .role-card p { min-height: 0; }
 }
 
@@ -174,4 +195,6 @@ tr:last-child td { border-bottom: 0; }
   .toolbar select { width: 100%; }
   .status-row { grid-template-columns: 1fr; gap: 12px; }
   .form-grid { grid-template-columns: 1fr; }
+  .auth-links, .list-card, .status-steps { align-items: flex-start; flex-direction: column; }
+  .portal-grid { grid-template-columns: 1fr; }
 }

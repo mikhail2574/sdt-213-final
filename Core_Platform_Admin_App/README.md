@@ -8,14 +8,12 @@ A dependency-free administrative dashboard prototype created for the team projec
 
 ## Included functionality
 
-- Demo sign-in flow
-- Operational dashboard with platform metrics
-- User search, role/status filtering, and local user creation
-- Account activation and deactivation
-- Role and permission overview
-- Service-health monitoring
-- Administrative activity log
-- Responsive desktop and mobile layout
+- Demo sign-in for Administrator, Student, Faculty, Staff Operator, Staff Viewer, and Applicant roles
+- Failed-attempt counting with a five-attempt account lock, sign-out, password-reset request, and simulated applicant registration/email confirmation
+- Role-based navigation for the Admin Console and University Portal
+- Admin dashboard, user search/filtering, add/edit/activate/deactivate, roles and access, announcements, reports, settings, system status, notifications, and CSV activity export
+- University Portal home, notification center/email preferences, messages, directory, profile/password change, faculty reports, and applicant status
+- Local activity logging for sign-ins and workflow actions
 
 All changes are stored only in the browser's `localStorage`. No real credentials or personal data are required.
 
@@ -35,9 +33,15 @@ http://localhost:8080
 
 ## Demo credentials
 
+Passwords follow the `role123` pattern:
+
 ```text
-Email: admin@coreplatform.dev
-Password: admin123
+admin@coreplatform.dev / admin123
+student@coreplatform.dev / student123
+faculty@coreplatform.dev / faculty123
+staff@coreplatform.dev / staff123
+viewer@coreplatform.dev / viewer123
+applicant@coreplatform.dev / applicant123
 ```
 
 ## Project structure
@@ -54,4 +58,4 @@ Core_Platform_Admin_App/
 
 ## Notes
 
-This is a front-end demonstration build. Authentication, permissions, and persistence are simulated locally and must not be treated as production security controls.
+This is the Initial Prototype Code for Phase III. It is a front-end demonstration build: authentication, permissions, email confirmation, and persistence are simulated locally and must not be treated as production security controls. The planned production implementation can rebuild these screens with React and move logic to Java Spring Boot, Spring Security/JWT, and MySQL.

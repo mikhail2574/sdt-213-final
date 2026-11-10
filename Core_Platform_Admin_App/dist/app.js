@@ -1,162 +1,65 @@
-const seedUsers = [
-  { id: 1, name: "Mykhailo Naumenko", email: "mykhailo@coreplatform.dev", role: "Administrator", status: "Active", lastActive: "2 min ago" },
-  { id: 2, name: "Yaroslav Kalinichenko", email: "yaroslav@coreplatform.dev", role: "Operator", status: "Active", lastActive: "18 min ago" },
-  { id: 3, name: "Vladyslav Konrad", email: "vladyslav@coreplatform.dev", role: "Administrator", status: "Active", lastActive: "41 min ago" },
-  { id: 4, name: "Olivia Martin", email: "olivia.martin@example.com", role: "Viewer", status: "Active", lastActive: "Today, 09:24" },
-  { id: 5, name: "Noah Williams", email: "noah.williams@example.com", role: "Operator", status: "Pending", lastActive: "Invitation sent" },
-  { id: 6, name: "Sophia Clark", email: "sophia.clark@example.com", role: "Viewer", status: "Inactive", lastActive: "Sep 12, 2026" }
+const defaultAccounts = [
+  { id: 1, name: "Mykhailo Naumenko", email: "admin@coreplatform.dev", role: "Administrator", password: "admin123", status: "Active" },
+  { id: 2, name: "Student Demo", email: "student@coreplatform.dev", role: "Student", password: "student123", status: "Active" },
+  { id: 3, name: "Faculty Demo", email: "faculty@coreplatform.dev", role: "Faculty", password: "faculty123", status: "Active" },
+  { id: 4, name: "Staff Operator", email: "staff@coreplatform.dev", role: "Operator", password: "staff123", status: "Active" },
+  { id: 5, name: "Staff Viewer", email: "viewer@coreplatform.dev", role: "Viewer", password: "viewer123", status: "Active" },
+  { id: 6, name: "Applicant Demo", email: "applicant@coreplatform.dev", role: "Applicant", password: "applicant123", status: "Active" }
 ];
-
-const activity = [
-  { time: "Today, 19:42", actor: "Yaroslav K.", action: "Updated user role", target: "Noah Williams", result: "Success" },
-  { time: "Today, 19:18", actor: "Vladyslav K.", action: "Reviewed access policy", target: "Operator role", result: "Success" },
-  { time: "Today, 18:56", actor: "Mykhailo N.", action: "Validated service status", target: "Core API", result: "Success" },
-  { time: "Today, 18:31", actor: "Yaroslav K.", action: "Created test account", target: "QA Viewer", result: "Success" },
-  { time: "Yesterday, 21:04", actor: "Vladyslav K.", action: "Exported activity log", target: "Weekly audit", result: "Success" },
-  { time: "Yesterday, 20:48", actor: "Mykhailo N.", action: "Updated platform setting", target: "Session timeout", result: "Success" }
-];
-
+let accounts = JSON.parse(localStorage.getItem("core-platform-accounts") || "null") || defaultAccounts;
+const navByRole = {
+  Administrator: [["dashboard", "Dashboard"], ["users", "Users"], ["roles", "Roles & Access"], ["announcements", "Announcements"], ["reports", "Reports"], ["settings", "Settings"], ["status", "System Status"], ["activity", "Activity Log"]],
+  Operator: [["dashboard", "Dashboard"], ["users", "Users"], ["announcements", "Announcements"], ["reports", "Reports"], ["status", "System Status"], ["activity", "Activity Log"]],
+  Viewer: [["dashboard", "Dashboard"], ["reports", "Reports"], ["status", "System Status"]],
+  Student: [["home", "Home"], ["notifications", "Notifications"], ["messages", "Messages"], ["directory", "Directory"], ["profile", "My Profile"]],
+  Faculty: [["home", "Home"], ["notifications", "Notifications"], ["messages", "Messages"], ["directory", "Directory"], ["profile", "My Profile"], ["reports", "Faculty Reports"]],
+  Applicant: [["home", "Application Home"], ["notifications", "Notifications"], ["profile", "My Profile"], ["status", "Application Status"]]
+};
+const seedUsers = accounts.map(({ password, ...user }) => user).concat([
+  { id: 7, name: "Olivia Martin", email: "olivia.martin@example.com", role: "Viewer", status: "Active" },
+  { id: 8, name: "Noah Williams", email: "noah.williams@example.com", role: "Operator", status: "Pending" },
+  { id: 9, name: "Sophia Clark", email: "sophia.clark@example.com", role: "Viewer", status: "Inactive" }
+]);
+const services = [["ID", "Identity service", "Authentication and session management", "42 ms"], ["API", "Core API", "User and configuration operations", "68 ms"], ["AU", "Audit pipeline", "Administrative event processing", "81 ms"], ["WEB", "Admin frontend", "Management console delivery", "24 ms"]];
 let users = JSON.parse(localStorage.getItem("core-platform-users") || "null") || seedUsers;
-
-const loginScreen = document.querySelector("#login-screen");
-const appShell = document.querySelector("#app-shell");
-const pageTitle = document.querySelector("#page-title");
-const userDialog = document.querySelector("#user-dialog");
-const toast = document.querySelector("#toast");
-
-function initials(name) {
-  return name.split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
-}
-
-function showToast(message) {
-  toast.textContent = message;
-  toast.classList.add("is-visible");
-  window.setTimeout(() => toast.classList.remove("is-visible"), 2400);
-}
-
-function signIn() {
-  loginScreen.hidden = true;
-  appShell.hidden = false;
-  sessionStorage.setItem("core-platform-session", "active");
-}
-
-function switchView(viewName) {
-  document.querySelectorAll(".view").forEach(view => view.classList.toggle("is-visible", view.id === `view-${viewName}`));
-  document.querySelectorAll(".nav-item").forEach(button => button.classList.toggle("is-active", button.dataset.view === viewName));
-  const active = document.querySelector(`#view-${viewName}`);
-  pageTitle.textContent = active?.dataset.title || "Core Platform";
-}
-
-function statusClass(status) {
-  if (status === "Active") return "pill--success";
-  if (status === "Pending") return "pill--pending";
-  return "pill--inactive";
-}
-
-function renderUsers() {
-  const query = document.querySelector("#user-search").value.trim().toLowerCase();
-  const role = document.querySelector("#role-filter").value;
-  const status = document.querySelector("#status-filter").value;
-  const filtered = users.filter(user => {
-    const matchesText = `${user.name} ${user.email}`.toLowerCase().includes(query);
-    return matchesText && (role === "all" || user.role === role) && (status === "all" || user.status === status);
-  });
-
-  document.querySelector("#users-table-body").innerHTML = filtered.map(user => `
-    <tr>
-      <td><div class="user-cell"><span class="avatar">${initials(user.name)}</span><span><strong>${user.name}</strong><small>${user.email}</small></span></div></td>
-      <td>${user.role}</td>
-      <td><span class="pill ${statusClass(user.status)}">${user.status}</span></td>
-      <td>${user.lastActive}</td>
-      <td><div class="row-actions"><button class="mini-button" data-toggle-user="${user.id}" type="button">${user.status === "Inactive" ? "Activate" : "Deactivate"}</button></div></td>
-    </tr>
-  `).join("");
-  document.querySelector("#user-count").textContent = `Showing ${filtered.length} of ${users.length} users`;
-  document.querySelector("#metric-total").textContent = String(122 + users.length);
-  document.querySelector("#metric-active").textContent = String(113 + users.filter(user => user.status === "Active").length);
-}
-
-function renderActivity() {
-  document.querySelector("#dashboard-activity").innerHTML = activity.slice(0, 4).map(item => `
-    <div class="activity-item"><span class="activity-icon">✓</span><span><strong>${item.action}</strong><small>${item.actor} · ${item.target}</small></span><span class="activity-time">${item.time.split(", ").pop()}</span></div>
-  `).join("");
-  document.querySelector("#activity-table-body").innerHTML = activity.map(item => `
-    <tr><td>${item.time}</td><td>${item.actor}</td><td>${item.action}</td><td>${item.target}</td><td><span class="pill pill--success">${item.result}</span></td></tr>
-  `).join("");
-}
-
-document.querySelector("#login-form").addEventListener("submit", event => {
-  event.preventDefault();
-  const email = document.querySelector("#email").value.trim();
-  const password = document.querySelector("#password").value;
-  if (email === "admin@coreplatform.dev" && password === "admin123") {
-    document.querySelector("#login-error").textContent = "";
-    signIn();
-  } else {
-    document.querySelector("#login-error").textContent = "Use the demo credentials shown below the form.";
-  }
-});
-
-document.querySelector("#logout-button").addEventListener("click", () => {
-  sessionStorage.removeItem("core-platform-session");
-  appShell.hidden = true;
-  loginScreen.hidden = false;
-});
-
-document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
-document.querySelectorAll("[data-jump]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.jump)));
-document.querySelector("#add-user-button").addEventListener("click", () => userDialog.showModal());
-
-document.querySelector("#user-form").addEventListener("submit", event => {
-  const submitter = event.submitter;
-  if (!submitter || submitter.value !== "default") return;
-  event.preventDefault();
-  const name = document.querySelector("#new-name").value.trim();
-  const email = document.querySelector("#new-email").value.trim();
-  if (!name || !email) return;
-  users.unshift({ id: Date.now(), name, email, role: document.querySelector("#new-role").value, status: document.querySelector("#new-status").value, lastActive: "Just created" });
-  localStorage.setItem("core-platform-users", JSON.stringify(users));
-  renderUsers();
-  userDialog.close();
-  event.target.reset();
-  showToast(`${name} was created successfully.`);
-});
-
-document.querySelector("#users-table-body").addEventListener("click", event => {
-  const button = event.target.closest("[data-toggle-user]");
-  if (!button) return;
-  const user = users.find(item => item.id === Number(button.dataset.toggleUser));
-  if (!user) return;
-  user.status = user.status === "Inactive" ? "Active" : "Inactive";
-  localStorage.setItem("core-platform-users", JSON.stringify(users));
-  renderUsers();
-  showToast(`${user.name} is now ${user.status.toLowerCase()}.`);
-});
-
-["#user-search", "#role-filter", "#status-filter"].forEach(selector => {
-  document.querySelector(selector).addEventListener("input", renderUsers);
-});
-
-document.querySelector("#export-button").addEventListener("click", () => {
-  const lines = [["Timestamp", "Actor", "Action", "Target", "Result"], ...activity.map(item => [item.time, item.actor, item.action, item.target, item.result])];
-  const csv = lines.map(row => row.map(value => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n");
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  link.download = "core-platform-activity.csv";
-  link.click();
-  URL.revokeObjectURL(link.href);
-  showToast("Activity log exported.");
-});
-
-renderUsers();
-renderActivity();
-
-const demo = new URLSearchParams(window.location.search).get("demo");
-if (demo) {
-  signIn();
-  const demoView = demo === "add" ? "users" : demo;
-  switchView(["dashboard", "users", "roles", "status", "activity"].includes(demoView) ? demoView : "dashboard");
-  if (demo === "add") window.setTimeout(() => userDialog.showModal(), 100);
-} else if (sessionStorage.getItem("core-platform-session") === "active") {
-  signIn();
-}
+let activity = JSON.parse(localStorage.getItem("core-platform-activity") || "null") || [{ time: "Today, 19:42", actor: "System", action: "Prototype initialized", target: "Core Platform", result: "Success" }];
+let currentUser = null;
+let activeView = "dashboard";
+let attempts = JSON.parse(localStorage.getItem("core-platform-attempts") || "{}");
+const $ = selector => document.querySelector(selector);
+const esc = value => String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+const save = () => { localStorage.setItem("core-platform-users", JSON.stringify(users)); localStorage.setItem("core-platform-activity", JSON.stringify(activity)); localStorage.setItem("core-platform-attempts", JSON.stringify(attempts)); localStorage.setItem("core-platform-accounts", JSON.stringify(accounts)); };
+const initials = name => name.split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+function toast(message) { const node = $("#toast"); node.textContent = message; node.classList.add("is-visible"); setTimeout(() => node.classList.remove("is-visible"), 2500); }
+function log(action, target, result = "Success") { activity.unshift({ time: new Date().toLocaleString(), actor: currentUser?.name || "Guest", action, target, result }); activity = activity.slice(0, 100); save(); }
+function statusPill(status) { return `<span class="pill ${status === "Active" || status === "Operational" ? "pill--success" : status === "Pending" ? "pill--pending" : "pill--inactive"}">${esc(status)}</span>`; }
+function signIn(user) { currentUser = user; sessionStorage.setItem("core-platform-session", JSON.stringify({ email: user.email })); $("#login-screen").hidden = true; $("#app-shell").hidden = false; $("#signed-name").textContent = user.name; $("#signed-role").textContent = user.role; $("#signed-avatar").textContent = initials(user.name); $("#workspace-label").textContent = user.role === "Administrator" || user.role === "Operator" || user.role === "Viewer" ? "Admin Console" : "University Portal"; renderNav(); switchView(navByRole[user.role][0][0]); log("Signed in", user.email); }
+function signOut() { log("Signed out", currentUser.email); currentUser = null; sessionStorage.removeItem("core-platform-session"); $("#app-shell").hidden = true; $("#login-screen").hidden = false; $("#login-error").textContent = ""; }
+function renderNav() { $("#main-nav").innerHTML = navByRole[currentUser.role].map(([id, label], index) => `<button class="nav-item ${index === 0 ? "is-active" : ""}" data-view="${id}" type="button"><span>${["▦", "◎", "◇", "◈", "▤", "⚙", "◉", "≡"][index % 8]}</span>${label}</button>`).join(""); document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view))); }
+function switchView(view) { activeView = view; document.querySelectorAll(".nav-item").forEach(button => button.classList.toggle("is-active", button.dataset.view === view)); const item = navByRole[currentUser.role].find(entry => entry[0] === view); $("#page-title").textContent = item?.[1] || "Workspace"; $("#breadcrumb").textContent = currentUser.role === "Administrator" || currentUser.role === "Operator" || currentUser.role === "Viewer" ? "Core Platform / Admin" : "Core Platform / University Portal"; renderView(); }
+function renderView() { const admin = ["Administrator", "Operator", "Viewer"].includes(currentUser.role); const renderers = { dashboard: renderDashboard, users: renderUsers, roles: renderRoles, announcements: renderAnnouncements, reports: renderReports, settings: renderSettings, status: renderStatus, activity: renderActivity, home: renderPortalHome, notifications: renderNotifications, messages: renderMessages, directory: renderDirectory, profile: renderProfile }; $("#content-view").innerHTML = (renderers[activeView] || (activeView === "status" ? renderStatus : renderPortalHome))(); bindView(); }
+function renderDashboard() { const active = users.filter(user => user.status === "Active").length; return `<div class="metrics-grid"><article class="metric-card"><span>Total users</span><strong>${users.length + 119}</strong><small>Managed accounts</small></article><article class="metric-card"><span>Active accounts</span><strong>${active + 113}</strong><small>${Math.round((active / users.length) * 100)}% in local data</small></article><article class="metric-card"><span>Administrators</span><strong>${users.filter(user => user.role === "Administrator").length}</strong><small>Privileged accounts</small></article><article class="metric-card"><span>Pending reviews</span><strong>${users.filter(user => user.status === "Pending").length}</strong><small class="warning-text">Requires attention</small></article></div><div class="dashboard-grid"><article class="panel"><div class="panel-heading"><div><span class="eyebrow">Last actions</span><h2>Administrative activity</h2></div><button class="text-button" data-jump="activity">View all</button></div><div class="activity-list">${activity.slice(0, 5).map(item => `<div class="activity-item"><span class="activity-icon">✓</span><span><strong>${esc(item.action)}</strong><small>${esc(item.actor)} · ${esc(item.target)}</small></span><span class="activity-time">${esc(item.time)}</span></div>`).join("")}</div></article>${renderServicePanel()}</div>`; }
+function renderUsers() { return `<div class="section-actions"><div><h2>Managed users</h2><p>Search, edit, activate, and deactivate accounts.</p></div><button class="button button--primary" id="add-user-button">Add user</button></div><div class="toolbar"><label class="search-field"><span>⌕</span><input id="user-search" type="search" placeholder="Search by name or email" /></label><select id="role-filter"><option value="all">All roles</option>${["Administrator", "Operator", "Viewer", "Student", "Faculty", "Applicant"].map(role => `<option>${role}</option>`).join("")}</select><select id="status-filter"><option value="all">All statuses</option><option>Active</option><option>Pending</option><option>Inactive</option></select></div><div class="table-wrap"><table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users-table-body"></tbody></table></div><p class="table-summary" id="user-count"></p>`; }
+function renderRoles() { return `<div class="section-actions"><div><h2>Roles and access</h2><p>Role-based navigation and permissions used by this prototype.</p></div></div><div class="role-grid">${[["Administrator", "Full access to users, roles, settings, audit records, and service status."], ["Operator", "Operational access to user records, announcements, reports, and status."], ["Viewer", "Read-only access to approved dashboards, reports, and platform status."]].map(([role, desc]) => `<article class="role-card"><div class="role-icon">${role[0]}</div><h3>${role}</h3><p>${desc}</p><div class="role-meta"><strong>${users.filter(user => user.role === role).length} local users</strong><span>Role based</span></div></article>`).join("")}</div><article class="panel permission-panel"><div class="panel-heading"><div><span class="eyebrow">Access matrix</span><h2>Capabilities by role</h2></div></div><div class="table-wrap"><table><thead><tr><th>Capability</th><th>Administrator</th><th>Operator</th><th>Viewer</th></tr></thead><tbody><tr><td>Create and edit users</td><td>Full</td><td>Limited</td><td>None</td></tr><tr><td>Announcements and reports</td><td>Full</td><td>Full</td><td>Read</td></tr><tr><td>Settings and permissions</td><td>Full</td><td>None</td><td>None</td></tr></tbody></table></div></article>`; }
+function renderAnnouncements() { return `<div class="section-actions"><div><h2>Notifications and announcements</h2><p>Publish a message visible to portal users.</p></div><button class="button button--primary" id="announcement-button">Create announcement</button></div><div class="card-list">${["Welcome to the new academic term", "Scheduled maintenance: Saturday 02:00 UTC", "Review your profile and notification preferences"].map((item, index) => `<article class="panel list-card"><span class="pill pill--success">${index === 0 ? "Published" : "Scheduled"}</span><div><h3>${item}</h3><p>Core Platform communications for students, faculty, and staff.</p></div><small>Updated today</small></article>`).join("")}</div>`; }
+function renderReports() { return `<div class="section-actions"><div><h2>${currentUser.role === "Faculty" ? "Faculty reports" : "Reports"}</h2><p>Review operational and academic summary data.</p></div><button class="button button--secondary" id="report-export">Export report</button></div><div class="metrics-grid"><article class="metric-card"><span>Attendance processed</span><strong>94%</strong><small>+4% this month</small></article><article class="metric-card"><span>Applications reviewed</span><strong>48</strong><small>12 pending</small></article><article class="metric-card"><span>Messages delivered</span><strong>1,284</strong><small>98% opened</small></article></div><article class="panel"><h2>Report summary</h2><p class="muted-copy">This demonstration report uses local sample data. Export creates a CSV file for the current review.</p></article>`; }
+function renderSettings() { return `<div class="section-actions"><div><h2>Platform settings</h2><p>Demo settings are saved in this browser only.</p></div></div><article class="panel settings-form"><label>Session timeout<select id="session-timeout"><option>30 minutes</option><option>60 minutes</option><option>8 hours</option></select></label><label>Email notifications<select id="email-notifications"><option>Enabled</option><option>Disabled</option></select></label><button class="button button--primary" id="save-settings">Save settings</button></article>`; }
+function renderStatus() { return `<div class="section-actions"><div><h2>${currentUser.role === "Applicant" ? "Application status" : "System status"}</h2><p>${currentUser.role === "Applicant" ? "Track your simulated application workflow." : "Current availability across the platform."}</p></div>${statusPill("Operational")}</div>${currentUser.role === "Applicant" ? `<article class="panel"><div class="progress-track"><span style="width: 66%"></span></div><div class="status-steps"><strong>Application submitted</strong><strong>Documents under review</strong><strong>Decision pending</strong></div></article>` : `<div class="status-stack">${services.map(([code, name, desc, latency]) => `<article class="status-row"><div><span class="service-badge">${code}</span><span><strong>${name}</strong><small>${desc}</small></span></div><span class="latency">${latency}</span>${statusPill("Operational")}</article>`).join("")}</div>`}`; }
+function renderActivity() { return `<div class="section-actions"><div><h2>Activity log</h2><p>Every sign-in and workflow action is recorded locally.</p></div><button class="button button--secondary" id="export-button">Export CSV</button></div><div class="toolbar"><label class="search-field"><span>⌕</span><input id="activity-search" type="search" placeholder="Search activity" /></label></div><div class="table-wrap"><table><thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th></tr></thead><tbody id="activity-table-body"></tbody></table></div>`; }
+function renderServicePanel() { return `<article class="panel"><div class="panel-heading"><div><span class="eyebrow">Live services</span><h2>Platform health</h2></div>${statusPill("Operational")}</div><div class="service-list compact">${services.map(([, name,, latency]) => `<div><span><i class="status-dot status-dot--online"></i>${name}</span><strong>${latency}</strong></div>`).join("")}</div></article>`; }
+function renderPortalHome() { return `<div class="section-actions"><div><h2>Welcome, ${esc(currentUser.name.split(" ")[0])}</h2><p>Your University Portal workspace and module shortcuts.</p></div>${statusPill("Active")}</div><div class="portal-grid">${navByRole[currentUser.role].slice(1).map(([id, label]) => `<button class="portal-tile" data-jump="${id}"><span class="role-icon">${label[0]}</span><strong>${label}</strong><small>Open ${label.toLowerCase()}</small></button>`).join("")}</div><div class="dashboard-grid"><article class="panel"><span class="eyebrow">Latest notification</span><h2>Welcome to Core Platform</h2><p class="muted-copy">Your workspace is ready. Review your profile and notification preferences.</p></article><article class="panel"><span class="eyebrow">Quick status</span><h2>All systems operational</h2><p class="muted-copy">Last checked just now.</p></article></div>`; }
+function renderNotifications() { return `<div class="section-actions"><div><h2>Notification center</h2><p>Announcements and email preferences.</p></div></div><div class="card-list"><article class="panel list-card"><span class="activity-icon">!</span><div><h3>Welcome to the new academic term</h3><p>Review your current tasks and profile information.</p></div><span class="pill pill--pending">Unread</span></article><article class="panel settings-form"><label>Email notification settings<select id="portal-email-setting"><option>Enabled</option><option>Daily digest</option><option>Disabled</option></select></label><button class="button button--primary" id="save-portal-settings">Save preferences</button></article></div>`; }
+function renderMessages() { return `<div class="section-actions"><div><h2>Messages</h2><p>Secure communication within the university community.</p></div><button class="button button--primary" id="new-message">New message</button></div><div class="card-list"><article class="panel list-card"><div><h3>Registrar Office</h3><p>Your profile review has been completed successfully.</p></div><small>Today, 10:24</small></article><article class="panel list-card"><div><h3>Core Platform Support</h3><p>Welcome to the University Portal prototype.</p></div><small>Yesterday</small></article></div>`; }
+function renderDirectory() { return `<div class="section-actions"><div><h2>Directory</h2><p>Find members of the university community.</p></div></div><div class="toolbar"><label class="search-field"><span>⌕</span><input id="directory-search" type="search" placeholder="Search directory" /></label></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Email</th></tr></thead><tbody id="directory-body">${users.filter(user => user.status === "Active").map(user => `<tr><td>${esc(user.name)}</td><td>${esc(user.role)}</td><td>${esc(user.email)}</td></tr>`).join("")}</tbody></table></div>`; }
+function renderProfile() { return `<div class="section-actions"><div><h2>My Profile</h2><p>Manage your personal information and password.</p></div></div><article class="panel settings-form"><label>Full name<input id="profile-name" value="${esc(currentUser.name)}" /></label><label>Email address<input value="${esc(currentUser.email)}" disabled /></label><button class="button button--primary" id="save-profile">Save profile</button><hr /><h3>Change password</h3><label>New password<input id="new-password" type="password" placeholder="At least 6 characters" /></label><button class="button button--secondary" id="change-password">Change password</button></article>`; }
+function renderUsersTable() { const query = ($("#user-search")?.value || "").toLowerCase(); const role = $("#role-filter")?.value || "all"; const status = $("#status-filter")?.value || "all"; const filtered = users.filter(user => `${user.name} ${user.email}`.toLowerCase().includes(query) && (role === "all" || user.role === role) && (status === "all" || user.status === status)); $("#users-table-body").innerHTML = filtered.map(user => `<tr><td><div class="user-cell"><span class="avatar">${initials(user.name)}</span><span><strong>${esc(user.name)}</strong><small>${esc(user.email)}</small></span></div></td><td>${esc(user.role)}</td><td>${statusPill(user.status)}</td><td><div class="row-actions"><button class="mini-button" data-edit-user="${user.id}">Edit</button><button class="mini-button" data-toggle-user="${user.id}">${user.status === "Inactive" ? "Activate" : "Deactivate"}</button></div></td></tr>`).join("") || `<tr><td colspan="4">No users found.</td></tr>`; $("#user-count").textContent = `Showing ${filtered.length} of ${users.length} users`; }
+function renderActivityTable() { const query = ($("#activity-search")?.value || "").toLowerCase(); $("#activity-table-body").innerHTML = activity.filter(item => Object.values(item).join(" ").toLowerCase().includes(query)).map(item => `<tr><td>${esc(item.time)}</td><td>${esc(item.actor)}</td><td>${esc(item.action)}</td><td>${esc(item.target)}</td><td>${statusPill(item.result)}</td></tr>`).join(""); }
+function downloadCsv(filename, rows) { const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
+function openAuth(mode) { $("#auth-error").textContent = ""; $("#auth-eyebrow").textContent = mode === "register" ? "Applicant registration" : "Password recovery"; $("#auth-heading").textContent = mode === "register" ? "Create applicant account" : "Request password reset"; $("#auth-submit").textContent = mode === "register" ? "Register" : "Send reset link"; $("#auth-fields").innerHTML = mode === "register" ? `<label>Full name<input id="auth-name" required /></label><label>Email address<input id="auth-email" type="email" required /></label><label>Password<input id="auth-password" type="password" required minlength="6" /></label>` : `<label>Email address<input id="auth-email" type="email" required /></label>`; $("#auth-form").dataset.mode = mode; $("#auth-dialog").showModal(); }
+function bindView() { if (activeView === "users") { renderUsersTable(); ["#user-search", "#role-filter", "#status-filter"].forEach(selector => $(selector).addEventListener("input", renderUsersTable)); $("#add-user-button").addEventListener("click", () => openUser()); $("#users-table-body").addEventListener("click", event => { const edit = event.target.closest("[data-edit-user]"); const toggle = event.target.closest("[data-toggle-user]"); if (edit) openUser(Number(edit.dataset.editUser)); if (toggle) { const user = users.find(item => item.id === Number(toggle.dataset.toggleUser)); user.status = user.status === "Inactive" ? "Active" : "Inactive"; log(`${user.status === "Active" ? "Activated" : "Deactivated"} user`, user.email); renderUsersTable(); toast(`${user.name} is now ${user.status.toLowerCase()}.`); } }); } if (activeView === "activity") { renderActivityTable(); $("#activity-search").addEventListener("input", renderActivityTable); $("#export-button").addEventListener("click", () => { downloadCsv("core-platform-activity.csv", [["Timestamp", "Actor", "Action", "Target", "Result"], ...activity.map(item => [item.time, item.actor, item.action, item.target, item.result])]); log("Exported activity log", "Activity Log"); toast("Activity log exported."); }); } document.querySelectorAll("[data-jump]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.jump))); $("#announcement-button")?.addEventListener("click", () => { log("Created announcement", "University Portal"); toast("Announcement published."); }); $("#report-export")?.addEventListener("click", () => { downloadCsv("core-platform-report.csv", [["Report", "Value"], ["Managed users", users.length], ["Activity events", activity.length]]); log("Exported report", "Reports"); toast("Report exported."); }); $("#save-settings, #save-portal-settings")?.addEventListener("click", () => { log("Updated settings", "Notification preferences"); toast("Settings saved locally."); }); $("#new-message")?.addEventListener("click", () => { log("Created message", "University Directory"); toast("Message composer simulated."); }); $("#save-profile")?.addEventListener("click", () => { const name = $("#profile-name").value.trim(); if (name) { currentUser.name = name; const user = users.find(item => item.email === currentUser.email); if (user) user.name = name; save(); $("#signed-name").textContent = name; log("Updated profile", currentUser.email); toast("Profile saved."); } }); $("#change-password")?.addEventListener("click", () => { const password = $("#new-password").value; if (password.length < 6) { toast("Password must contain at least 6 characters."); return; } const account = accounts.find(item => item.email === currentUser.email); if (account) account.password = password; log("Changed password", currentUser.email); toast("Password changed in this demo session."); }); }
+function openUser(id) { const user = users.find(item => item.id === id); $("#user-heading").textContent = user ? "Edit user" : "Add a user"; $("#edit-id").value = user?.id || ""; $("#new-name").value = user?.name || ""; $("#new-email").value = user?.email || ""; $("#new-role").value = user?.role || "Viewer"; $("#new-status").value = user?.status || "Active"; $("#user-dialog").showModal(); }
+$("#login-form").addEventListener("submit", event => { event.preventDefault(); const email = $("#email").value.trim().toLowerCase(); const password = $("#password").value; const account = accounts.find(item => item.email === email); const count = attempts[email] || 0; if (count >= 5) { $("#login-error").textContent = "This account is locked after five failed attempts. Use password reset."; log("Blocked sign-in", email, "Locked"); return; } if (!account || account.password !== password || account.status !== "Active") { attempts[email] = count + 1; save(); $("#login-error").textContent = `Invalid credentials. Failed attempts: ${attempts[email]}/5.`; log("Failed sign-in", email, "Failed"); return; } attempts[email] = 0; save(); $("#login-error").textContent = ""; signIn(account); });
+$("#logout-button").addEventListener("click", signOut); $("#reset-link").addEventListener("click", () => openAuth("reset")); $("#register-link").addEventListener("click", () => openAuth("register")); $("#notification-button").addEventListener("click", () => { const first = navByRole[currentUser.role].find(item => item[0] === "notifications"); if (first) switchView("notifications"); else toast("No new notifications."); });
+$("#auth-form").addEventListener("submit", event => { if (event.submitter?.value !== "default") return; event.preventDefault(); const mode = event.currentTarget.dataset.mode; const email = $("#auth-email").value.trim().toLowerCase(); if (mode === "reset") { log("Requested password reset", email, "Simulated"); $("#auth-dialog").close(); toast("Reset link simulated. Check your email."); return; } const name = $("#auth-name").value.trim(); const password = $("#auth-password").value; if (accounts.some(item => item.email === email)) { $("#auth-error").textContent = "An account with this email already exists."; return; } const account = { id: Date.now(), name, email, role: "Applicant", password, status: "Active" }; accounts.push(account); users.push({ id: account.id, name, email, role: account.role, status: account.status }); save(); log("Registered applicant", email, "Simulated"); $("#auth-dialog").close(); toast("Registration complete. Email confirmation simulated."); $("#email").value = email; $("#password").value = password; });
+$("#user-form").addEventListener("submit", event => { if (event.submitter?.value !== "default") return; event.preventDefault(); const id = Number($("#edit-id").value); const data = { name: $("#new-name").value.trim(), email: $("#new-email").value.trim(), role: $("#new-role").value, status: $("#new-status").value }; const existing = users.find(user => user.id === id); if (existing) { Object.assign(existing, data); log("Edited user", data.email); } else { users.unshift({ id: Date.now(), ...data }); log("Added user", data.email); } save(); $("#user-dialog").close(); renderView(); toast("User saved."); });
+const session = JSON.parse(sessionStorage.getItem("core-platform-session") || "null"); if (session) { const account = accounts.find(item => item.email === session.email); if (account) signIn(account); }
