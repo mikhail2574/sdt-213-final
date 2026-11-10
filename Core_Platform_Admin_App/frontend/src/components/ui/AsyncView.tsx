@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react'
 import Alert from './Alert'
 import Loader from './Loader'
-import type { AsyncState } from '../../hooks/useAsync'
+
+interface AsyncState<T> {
+  data: T | undefined
+  error: Error | null
+  loading: boolean
+}
 
 interface AsyncViewProps<T> {
   state: Pick<AsyncState<T>, 'data' | 'error' | 'loading'>

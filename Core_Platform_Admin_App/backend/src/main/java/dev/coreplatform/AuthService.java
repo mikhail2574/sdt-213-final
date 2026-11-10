@@ -24,10 +24,13 @@ public class AuthService {
     private final JwtEncoder encoder;
     private final Clock clock;
     private final String dummyHash;
+    private final PasswordPolicy policy;
+    private final PlatformRepository db;
     public AuthService(UserRepository users, AuditRepository audit, SessionRepository sessions,
-                       BCryptPasswordEncoder passwords, JwtEncoder encoder, Clock clock) {
+                       BCryptPasswordEncoder passwords, JwtEncoder encoder, Clock clock, PasswordPolicy policy, PlatformRepository db) {
         this.users = users; this.audit = audit; this.sessions = sessions;
         this.passwords = passwords; this.encoder = encoder; this.clock = clock;
+        this.policy=policy; this.db=db;
         this.dummyHash = passwords.encode(UUID.randomUUID().toString());
     }
     public record Login(@NotBlank @Email @Size(max=255) String email, @NotNull @Size(max=1024) String password) {
@@ -53,7 +56,8 @@ public class AuthService {
         if (!valid || user == null) {
             if (user != null) {
                 int failures = ((Number) user.get("failed_attempts")).intValue() + 1;
-                users.recordFailure(((Number) user.get("id")).longValue(), failures, failures >= 5 ? now.plusSeconds(900) : null);
+                int max=((Number)db.one("SELECT lockout_attempts FROM platform_settings WHERE id=1").get("lockout_attempts")).intValue();
+                users.recordFailure(((Number) user.get("id")).longValue(), failures, failures >= max ? now.plusSeconds(900) : null);
             }
             audit.append(email, "Failed sign-in", email, false);
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid email or password");
@@ -62,12 +66,16 @@ public class AuthService {
             audit.append(email, "Inactive sign-in", email, false);
             throw new ResponseStatusException(FORBIDDEN, "Account is not active");
         }
+        return startSession(user);
+    }
+    public Map<String,Object> startSession(Map<String,Object> user) {
+        var now=clock.instant();
         long id = ((Number) user.get("id")).longValue();
         String tokenId = UUID.randomUUID().toString();
         var expiresAt = now.plus(MAX_SESSION);
         sessions.create(tokenId, id, now, expiresAt);
         users.recordLogin(id, now);
-        audit.append(email, "Signed in", email, true);
+        audit.append((String)user.get("email"), "Signed in", (String)user.get("email"), true);
         user.put("last_login", Timestamp.from(now));
         var claims = JwtClaimsSet.builder().id(tokenId).subject(Long.toString(id)).issuedAt(now).expiresAt(expiresAt).build();
         String token = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
@@ -100,6 +108,7 @@ public class AuthService {
         if (!body.new_password().equals(body.confirm_password()))
             throw new ResponseStatusException(UNPROCESSABLE_ENTITY, "The new passwords do not match");
         String next = body.new_password();
+        policy.validate(next);
         if (next.getBytes(StandardCharsets.UTF_8).length > 72 ||
             !next.codePoints().anyMatch(Character::isLetter) || !next.codePoints().anyMatch(Character::isDigit))
             throw new ResponseStatusException(UNPROCESSABLE_ENTITY, "Use at least 8 characters, including a letter and a number, and at most 72 UTF-8 bytes");

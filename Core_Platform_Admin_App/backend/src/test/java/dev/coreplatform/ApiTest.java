@@ -10,14 +10,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.datasource.url=${TEST_DATABASE_URL:jdbc:h2:mem:core;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}", "spring.datasource.username=${TEST_DATABASE_USER:sa}", "spring.datasource.password=${TEST_DATABASE_PASSWORD:}", "app.seed-demo=1"})
+@SpringBootTest(properties={"app.audit-async=false","spring.datasource.url=${TEST_DATABASE_URL:jdbc:h2:mem:core;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}", "spring.datasource.username=${TEST_DATABASE_USER:sa}", "spring.datasource.password=${TEST_DATABASE_PASSWORD:}", "app.seed-demo=1"})
 @AutoConfigureMockMvc
 class ApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate db;
     @Autowired DemoDataLoader demo;
-    @BeforeEach void reset() { db.update("DELETE FROM audit_entries"); db.update("DELETE FROM users"); demo.run(); }
+    @BeforeEach void reset() { db.update("TRUNCATE TABLE audit_entries"); db.update("DELETE FROM users"); demo.run(); }
     String login(String account) throws Exception {
         var response=mvc.perform(post("/api/v1/auth/login").contentType("application/json").content("{\"email\":\""+account+"@coreplatform.dev\",\"password\":\""+account+"123\"}"))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();

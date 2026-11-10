@@ -4,7 +4,6 @@ import jakarta.validation.constraints.*;
 import java.util.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,32 +13,37 @@ import static org.springframework.http.HttpStatus.*;
 public class CoreService {
     private final UserRepository users;
     private final AuditRepository audit;
-    private final BCryptPasswordEncoder passwords;
+    private final AccessService access;
+    private final UserService accounts;
+    private final MonitoringService monitoring;
+    private final PlatformRepository db;
+    private final SessionRepository sessions;
+    private final java.time.Clock clock;
     private static final Set<String> ROLES = Set.of("Administrator", "Staff", "Student", "Faculty", "Applicant");
     private static final Set<String> STATUSES = Set.of("Active", "Pending", "Inactive");
-    public CoreService(UserRepository users, AuditRepository audit, BCryptPasswordEncoder passwords) {
-        this.users = users; this.audit = audit; this.passwords = passwords;
+    public CoreService(UserRepository users, AuditRepository audit,AccessService access,UserService accounts,MonitoringService monitoring,PlatformRepository db,SessionRepository sessions,java.time.Clock clock) {
+        this.users = users; this.audit = audit;
+        this.access=access; this.accounts=accounts; this.monitoring=monitoring; this.db=db;
+        this.sessions=sessions; this.clock=clock;
     }
     private boolean admin(Map<String,Object> u) { return "Administrator".equals(u.get("role")); }
-    private Map<String,Object> actor(Jwt jwt, boolean console) {
-        Map<String,Object> u=null;
-        try { if(jwt!=null) u=users.findById(Long.parseLong(jwt.getSubject())); } catch(NumberFormatException ignored) {}
-        if(u==null || !"Active".equals(u.get("status"))) throw new ResponseStatusException(UNAUTHORIZED,"Account is not active");
-        if(console && !admin(u) && !("Staff".equals(u.get("role")) && ("Operator".equals(u.get("console_access")) || "Viewer".equals(u.get("console_access")))))
-            throw new ResponseStatusException(FORBIDDEN,"Admin Console access denied");
-        return u;
-    }
     private void audit(Object actor,String action,Object target,boolean success) {
         audit.append(actor.toString(),action,target.toString(),success);
     }
     public Map<String,String> health() { return Map.of("service","Core API","status","Operational"); }
-    public Map<String,Object> me(Jwt jwt) { return UserView.of(actor(jwt,false)); }
+    public Map<String,Object> me(Jwt jwt) { return accounts.me(jwt); }
     public Map<String,Object> dashboard(Jwt jwt) {
-        var u=actor(jwt,true);
-        return Map.of("total_users",users.countAll(),"active_accounts",users.countByStatus("Active"),"administrators",users.countByRole("Administrator"),"pending_reviews",users.countByStatus("Pending"),"recent_activity",admin(u)?audit.latest(5):List.of(),"service",Map.of("name","Core API","status","Operational"));
+        var u=access.require(jwt,"dashboard.view");
+        var stats=db.one("SELECT COUNT(*) AS total_users,COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END),0) AS active_accounts,COALESCE(SUM(CASE WHEN role='Administrator' THEN 1 ELSE 0 END),0) AS administrators,COALESCE(SUM(CASE WHEN status='Pending' THEN 1 ELSE 0 END),0) AS pending_reviews FROM users");
+        stats.put("recent_activity",admin(u)?audit.latest(5):List.of());
+        var month=java.time.LocalDate.now(clock).withDayOfMonth(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        long added=db.count("SELECT COUNT(*) FROM users WHERE created_at>=?",java.sql.Timestamp.from(month));
+        long previous=((Number)stats.get("total_users")).longValue()-added;
+        stats.put("new_users_this_month",added); stats.put("growth_percent",previous==0?0:Math.round(added*1000.0/previous)/10.0);
+        stats.put("service",Map.of("name","Core API","status","Operational")); stats.put("services",monitoring.status()); return stats;
     }
     public List<Map<String,Object>> listUsers(Jwt jwt,String q,String role,String status) {
-        actor(jwt,true); if(q.length()>150) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Search must be at most 150 characters");
+        access.require(jwt,"users.view"); if(q.length()>150) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Search must be at most 150 characters");
         return users.search(q,role,status).stream().map(UserView::of).toList();
     }
     public record NewUser(@NotBlank @Size(min=2,max=120) String name,@NotBlank @Email @Size(max=255) String email,@NotNull String role,@Size(max=100) String department,String console_access) {}
@@ -49,18 +53,15 @@ public class CoreService {
     }
     @Transactional
     public ResponseEntity<Map<String,Object>> create(Jwt jwt,NewUser body) {
-        var u=actor(jwt,true); if(!admin(u)) throw new ResponseStatusException(FORBIDDEN,"Only administrators can create users");
-        checkAccess(body.role(),body.console_access());
-        String email=body.email().toLowerCase(Locale.ROOT);
-        users.create(body.name().strip(),email,body.role(),body.console_access(),body.department()==null?"":body.department().strip(),passwords.encode(UUID.randomUUID().toString()),"Pending");
-        audit(u.get("email"),"Created pending user",email,true);
-        return ResponseEntity.status(CREATED).body(UserView.of(users.findByEmail(email)));
+        return ResponseEntity.status(CREATED).body(accounts.create(jwt,body));
     }
     @Transactional
     public Map<String,Object> update(Jwt jwt,long id,Map<String,Object> fields) {
-        var u=actor(jwt,true);
+        var u=access.require(jwt,"users.edit");
         if(!admin(u) && !"Operator".equals(u.get("console_access"))) throw new ResponseStatusException(FORBIDDEN,"Read-only access");
+        db.one("SELECT id FROM platform_settings WHERE id=1 FOR UPDATE");
         var target=users.findByIdForUpdate(id); if(target==null) throw new ResponseStatusException(NOT_FOUND,"User not found");
+        boolean wasAdmin="Administrator".equals(target.get("role")) && "Active".equals(target.get("status"));
         boolean access=fields.keySet().stream().anyMatch(Set.of("role","status","console_access")::contains);
         if(!admin(u) && (fields.containsKey("role") || fields.containsKey("console_access"))) throw new ResponseStatusException(FORBIDDEN,"Operators cannot change roles or console access");
         if(((Number)u.get("id")).longValue()==id && access) throw new ResponseStatusException(BAD_REQUEST,"You cannot change your own access");
@@ -74,10 +75,10 @@ public class CoreService {
             target.put(k,s);
         }
         checkAccess((String)target.get("role"),(String)target.get("console_access"));
+        if(wasAdmin && (!"Administrator".equals(target.get("role")) || !"Active".equals(target.get("status"))) && db.count("SELECT COUNT(*) FROM users WHERE role='Administrator' AND status='Active'")<=1)
+            throw new ResponseStatusException(BAD_REQUEST,"Cannot remove the last active administrator");
         users.update(target);
+        if(access) sessions.revokeAll(id,clock.instant());
         audit(u.get("email"),"Updated user",target.get("email"),true); return UserView.of(target);
-    }
-    public List<Map<String,Object>> activity(Jwt jwt) {
-        if(!admin(actor(jwt,true))) throw new ResponseStatusException(FORBIDDEN,"Audit log is restricted to administrators"); return audit.latest(100);
     }
 }
