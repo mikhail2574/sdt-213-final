@@ -72,6 +72,7 @@ public class UserService {
     @Transactional
     public Map<String,Object> create(Jwt jwt,CoreService.NewUser body) {
         var actor=access.require(jwt,"users.create");
+        if(body.name().strip().length()<2) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Name must contain at least 2 non-padding characters");
         if(!Set.of("Administrator","Staff","Faculty","Student","Applicant").contains(body.role())) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Invalid role");
         boolean admin="Administrator".equals(actor.get("role"));
         if(!admin && ("Administrator".equals(body.role()) || body.console_access()!=null)) throw new ResponseStatusException(FORBIDDEN,"Only administrators may assign console access or administrator roles");
@@ -83,6 +84,7 @@ public class UserService {
     }
     @Transactional
     public Map<String,Object> syncStudent(CoreService.NewUser body) {
+        if(body.name().strip().length()<2) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Name must contain at least 2 non-padding characters");
         if(!"Student".equals(body.role()) || body.console_access()!=null) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"SIS may synchronize Student accounts only");
         String address=body.email().strip().toLowerCase(Locale.ROOT);
         var u=users.findByEmailForUpdate(address);

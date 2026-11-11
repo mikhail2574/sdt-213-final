@@ -24,9 +24,19 @@ public class ApiErrors {
             return ResponseEntity.status(413).body(Map.of("detail","Maximum request size is 1 MB"));
         return ResponseEntity.unprocessableEntity().body(Map.of("detail","Invalid request fields"));
     }
-    @ExceptionHandler({MethodArgumentNotValidException.class,
-        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
-        org.springframework.web.bind.MissingServletRequestParameterException.class,
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<?> validation(MethodArgumentNotValidException e) {
+        var fields=new java.util.TreeMap<String,String>();
+        for(var error:e.getBindingResult().getFieldErrors())
+            fields.putIfAbsent(error.getField(),error.getDefaultMessage()==null?"Invalid value":error.getDefaultMessage());
+        String detail=fields.entrySet().stream().map(f->f.getKey()+": "+f.getValue()).collect(java.util.stream.Collectors.joining("; "));
+        return ResponseEntity.unprocessableEntity().body(Map.of("detail",detail.isEmpty()?"Invalid request fields":detail,"fields",fields));
+    }
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    ResponseEntity<?> missingParameter(org.springframework.web.bind.MissingServletRequestParameterException e) {
+        return ResponseEntity.unprocessableEntity().body(Map.of("detail","Required parameter: "+e.getParameterName()));
+    }
+    @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
         org.springframework.web.bind.MissingRequestHeaderException.class})
     ResponseEntity<?> invalid() { return ResponseEntity.unprocessableEntity().body(Map.of("detail","Invalid request fields")); }
 }

@@ -59,6 +59,27 @@ class PlatformApiTest {
         links.removeExpiredApplicants();
         assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM users WHERE email='expired@example.edu'",Integer.class));
     }
+    @Test void registrationValidationIdentifiesMissingFieldsWithoutEchoingPasswords() throws Exception {
+        mvc.perform(post("/api/v1/auth/register").contentType("application/json")
+            .content("{\"name\":\"Applicant\",\"email\":\"new@example.edu\",\"password\":\"secret123\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.fields.confirm_password").isString())
+            .andExpect(jsonPath("$.fields.privacy_accepted").isString())
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("secret123"))));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM users WHERE email='new@example.edu'",Integer.class));
+        mvc.perform(post("/api/v1/auth/register").contentType("application/json")
+            .content("{\"name\":\" x \",\"email\":\"new@example.edu\",\"password\":\"secret123\",\"confirm_password\":\"secret123\",\"privacy_accepted\":true}"))
+            .andExpect(status().isUnprocessableEntity());
+    }
+    @Test void reportsExplainMissingPeriodAndAcceptTheFrontendDefault() throws Exception {
+        String admin=login("admin");
+        mvc.perform(get("/api/v1/reports").header("Authorization",admin))
+            .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.detail").value("Required parameter: period"));
+        mvc.perform(get("/api/v1/reports").header("Authorization",admin).param("period","2026"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.period").value("2026"))
+            .andExpect(jsonPath("$.missing_modules[0].module").isString())
+            .andExpect(jsonPath("$.missing_modules[0].reason").isString());
+    }
     @Test void resetIsNeutralExpiresAndRevokesSessions() throws Exception {
         String student=login("student");
         String existing=mvc.perform(post("/api/v1/auth/forgot-password").contentType("application/json").content("{\"email\":\"student@coreplatform.dev\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
