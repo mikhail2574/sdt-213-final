@@ -57,7 +57,9 @@ function buildUrl(path: string, params?: QueryParams) {
 async function send(path: string, { method = 'GET', body, params, auth = true }: RequestOptions = {}) {
   const token = auth ? tokenStore.get() : null
   const headers: Record<string, string> = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // Files (profile photo) are sent as raw bytes with their own type; everything else is JSON.
+  const isFile = body instanceof Blob
+  if (body !== undefined) headers['Content-Type'] = isFile ? body.type : 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
   let response: Response
@@ -65,7 +67,7 @@ async function send(path: string, { method = 'GET', body, params, auth = true }:
     response = await fetch(buildUrl(path, params), {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: isFile ? body : body !== undefined ? JSON.stringify(body) : undefined,
     })
   } catch {
     throw new ApiError('Cannot reach the server. Check that the backend is running.', 0)

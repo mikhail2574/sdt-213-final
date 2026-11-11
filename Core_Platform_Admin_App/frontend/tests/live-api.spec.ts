@@ -1,70 +1,44 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
-// Run only against a disposable, seeded backend: this test creates users and messages.
-test('live API: admin pages, messages, announcements, profile and applicant registration', async ({ page }) => {
-  test.skip(process.env.LIVE_API_TEST !== '1', 'Requires a disposable seeded backend on port 8000')
-  test.setTimeout(90000)
-  const errors: string[] = []
-  const runId = Date.now()
-  const messageText = `Browser integration test message ${runId}`
-  const announcementTitle = `Browser test announcement ${runId}`
-  page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/login')
-  await page.getByRole('button', { name: 'Admin', exact: true }).click()
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/dashboard$/)
-  await expect(page.getByText('Total users', { exact: true })).toBeVisible()
-  await page.screenshot({ path: test.info().outputPath('dashboard.png'), fullPage: true })
-  for (const label of ['Users', 'Roles & Access', 'System Status', 'Activity Log', 'Settings', 'Reports', 'Notifications', 'Messages', 'Home', 'My Profile']) {
-    await page.getByRole('link', { name: label, exact: true }).click()
-    await expect(page.getByRole('heading', { name: label, exact: true })).toBeVisible()
-    await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0)
-    await expect(page.getByRole('alert')).toHaveCount(0)
-  }
-  await page.getByLabel('Phone', { exact: true }).fill('+49123456789')
-  await page.getByRole('button', { name: 'Save profile', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Profile saved')
-  await page.getByRole('link', { name: 'Messages', exact: true }).click()
-  const token = await page.evaluate(() => sessionStorage.getItem('core_token'))
-  const users = await page.request.get('/api/v1/users', { headers: { Authorization: `Bearer ${token}` } })
-  const student = (await users.json()).items.find((user: { email: string }) => user.email === 'student@coreplatform.dev')
-  await page.getByRole('combobox', { name: 'Recipient', exact: true }).selectOption(String(student.id))
-  await page.getByLabel('Message', { exact: true }).fill(messageText)
-  await page.getByRole('button', { name: 'Send message', exact: true }).click()
-  await expect(page.getByText(messageText, { exact: false }).first()).toBeVisible()
-  await expect(page.getByRole('alert')).toHaveCount(0)
-  await page.getByRole('link', { name: 'Announcements', exact: true }).click()
-  await page.getByLabel('Title', { exact: true }).fill(announcementTitle)
-  await page.getByLabel('Text', { exact: true }).fill('Announcement text')
-  await page.getByRole('button', { name: 'Send announcement', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Announcement created')
-  await page.getByRole('link', { name: 'Notifications', exact: true }).click()
-  await expect(page.getByRole('heading', { name: announcementTitle, exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Mark all as read', exact: true }).click()
-  await expect(page.getByText('0 unread', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Sign out', exact: false }).click()
-  await expect(page).toHaveURL(/\/login$/)
-  await page.getByRole('link', { name: 'Create applicant account' }).click()
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.screenshot({ path: test.info().outputPath('registration-mobile.png'), fullPage: true })
-  await page.getByLabel('Full name').fill('Browser Applicant')
-  await page.getByLabel('Email address').fill(`browser-${Date.now()}@example.edu`)
-  await page.getByLabel('Password', { exact: true }).fill('secret123')
-  await page.getByLabel('Repeat password').fill('secret123')
-  await page.getByLabel('I accept the privacy notice').check()
-  await page.getByRole('button', { name: 'Register', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Your account was created')
-  await page.getByRole('link', { name: 'Back to sign in', exact: true }).click()
-  for (const role of ['Student', 'Faculty', 'Staff (Operator)', 'Staff (Viewer)', 'Applicant']) {
-    await page.getByRole('button', { name: role, exact: true }).click()
+// Read-only walk through every page each demo role can open, against a running seeded backend on port 8000.
+// Run with LIVE_API_TEST=1. It signs in and out (recorded in the activity log) but creates no other data.
+
+const ROLES: { account: string; start: RegExp; pages: string[] }[] = [
+  {
+    account: 'Admin',
+    start: /\/admin\/dashboard$/,
+    pages: ['Home', 'Notifications', 'Messages', 'Directory', 'Announcements', 'Reports', 'Profile', 'Dashboard', 'Users', 'Roles & access', 'Settings', 'System status', 'Activity log'],
+  },
+  { account: 'Student', start: /\/home$/, pages: ['Home', 'Notifications', 'Messages', 'Directory', 'Profile'] },
+  { account: 'Faculty', start: /\/home$/, pages: ['Home', 'Notifications', 'Messages', 'Directory', 'Announcements', 'Reports', 'Profile'] },
+  { account: 'Staff (Operator)', start: /\/home$/, pages: ['Home', 'Notifications', 'Messages', 'Directory', 'Profile', 'Dashboard', 'Users', 'Roles & access', 'System status'] },
+  { account: 'Staff (Viewer)', start: /\/home$/, pages: ['Home', 'Reports', 'Dashboard', 'Users', 'Roles & access', 'System status'] },
+  { account: 'Applicant', start: /\/home$/, pages: ['Home', 'Notifications', 'Messages', 'Profile'] },
+]
+
+async function openPage(page: Page, label: string) {
+  await page.getByRole('navigation').getByRole('link', { name: label, exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: label, exact: true })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: /Loading|Checking|Collecting/ })).toHaveCount(0, { timeout: 15000 })
+  await expect(page.getByRole('alert'), `${label} shows an error`).toHaveCount(0)
+}
+
+for (const role of ROLES) {
+  test(`live API: ${role.account} can open every allowed page`, async ({ page }) => {
+    test.skip(process.env.LIVE_API_TEST !== '1', 'Requires a seeded backend on port 8000')
+    test.setTimeout(90000)
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+
+    await page.goto('/login')
+    await page.getByRole('button', { name: role.account, exact: true }).click()
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await expect(page).toHaveURL(/\/home$/)
-    await expect(page.getByRole('heading', { name: 'Home', exact: true })).toBeVisible()
-    await page.getByRole('link', { name: 'Messages', exact: true }).click()
-    await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0)
-    await expect(page.getByRole('alert')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Sign out', exact: false }).click()
+    await expect(page).toHaveURL(role.start)
+
+    for (const label of role.pages) await openPage(page, label)
+
+    await page.getByRole('button', { name: 'Sign out' }).click()
     await expect(page).toHaveURL(/\/login$/)
-  }
-  expect(errors).toEqual([])
-})
+    expect(errors).toEqual([])
+  })
+}

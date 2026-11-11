@@ -6,6 +6,8 @@ interface DemoAccountsProps {
 
 /** Development-only shortcuts that prefill the sign-in form with a seeded account. */
 export default function DemoAccounts({ onSelect }: DemoAccountsProps) {
+  // Seeded demo passwords must never appear in a production build.
+  if (!import.meta.env.DEV) return null
   return (
     <div className="mt-12 text-sm">
       <p className="mb-2 text-muted">Demo accounts</p>

@@ -1,16 +1,21 @@
 import { request } from './client'
-import { toList, type ListResponse } from '../lib/collections'
-import type { NewUser, User, UserFilters, UserUpdate } from '../types/api'
+import type { NewUser, Page, RolePermissions, User, UserFilters, UserUpdate } from '../types/api'
 
 export const usersApi = {
-  /** The Admin Console gets every field; other roles get the directory view (name, role, department, email). */
-  list: (filters: UserFilters = {}) => request<ListResponse<User>>('/users', { params: { ...filters } }).then(toList),
+  /**
+   * Console users (users.view) get every field and every account; others get the directory view
+   * of active accounts (name, email, role, department).
+   */
+  list: (filters: UserFilters = {}) => request<Page<User>>('/users', { params: { ...filters } }),
 
-  /** Creates the account and sends an invitation email to set a password. */
+  /** Creates a Pending account and sends an invitation email to set a password (FR11). */
   create: (user: NewUser) => request<User>('/users', { method: 'POST', body: user }),
 
   update: (id: number, changes: UserUpdate) => request<User>(`/users/${id}`, { method: 'PATCH', body: changes }),
 
-  /** FR14: administrators and operators reuse the forgot-password endpoint with the user's email. */
-  sendPasswordReset: (email: string) => request<null>('/auth/forgot-password', { method: 'POST', body: { email } }),
+  /** FR14: with a token, the forgot-password endpoint sends a reset link to another user (users.edit). */
+  sendPasswordReset: (email: string) => request<{ detail: string }>('/auth/forgot-password', { method: 'POST', body: { email } }),
+
+  /** Read-only role/permission matrix for console users (users.view). */
+  roles: () => request<RolePermissions[]>('/roles'),
 }

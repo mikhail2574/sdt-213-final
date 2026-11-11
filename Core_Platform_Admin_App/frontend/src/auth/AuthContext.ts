@@ -9,7 +9,8 @@ export interface AuthContextValue {
   status: AuthStatus
   /** Message for the sign-in page, e.g. "Your session has expired". */
   flash: string
-  can: (permission: Permission) => boolean
+  /** True when the user has the permission, or any of the listed permissions. */
+  can: (permission: Permission | Permission[]) => boolean
   /** True when the user may open at least one Admin Console page. */
   hasConsoleAccess: boolean
   login: (email: string, password: string) => Promise<Me>

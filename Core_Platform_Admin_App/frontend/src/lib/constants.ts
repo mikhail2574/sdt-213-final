@@ -13,6 +13,8 @@ export const NOTIFICATION_CATEGORIES = [
   { code: 'timetable', label: 'Timetable changes' },
   { code: 'messages', label: 'Messages' },
   { code: 'announcements', label: 'Announcements' },
+  { code: 'accounts', label: 'Account changes' },
+  { code: 'system', label: 'System alerts' },
 ] as const
 
 export const ANNOUNCEMENT_CATEGORY = 'announcements'

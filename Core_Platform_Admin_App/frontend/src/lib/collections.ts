@@ -1,11 +1,3 @@
-/** List endpoints may return a plain array or an `{ items: [...] }` envelope. */
-export type ListResponse<T> = T[] | { items: T[] }
-
-export function toList<T>(data: ListResponse<T> | null): T[] {
-  if (Array.isArray(data)) return data
-  return Array.isArray(data?.items) ? data.items : []
-}
-
 /** Returns only the keys of `next` whose values differ from `original` (for PATCH requests). */
 export function changedFields<T extends object>(original: Partial<T>, next: T): Partial<T> {
   const changes: Partial<T> = {}

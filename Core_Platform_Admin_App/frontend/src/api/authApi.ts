@@ -1,34 +1,33 @@
 import { request } from './client'
-import type { EmailLinkResponse, LoginResponse } from '../types/api'
-
-export interface RegistrationData {
-  name: string
-  email: string
-  password: string
-  confirm_password: string
-  privacy_accepted: boolean
-}
+import type { EmailLinkResponse, ModuleLaunch, PasswordChange, Registration, Session, User } from '../types/api'
 
 export const authApi = {
   login: (email: string, password: string) =>
-    request<LoginResponse>('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
+    request<Session>('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
 
   logout: () => request<null>('/auth/logout', { method: 'POST' }),
 
-  /** Creates an Applicant in Pending status and sends a confirmation email. */
-  register: (data: RegistrationData) => request<import('../types/api').User>('/auth/register', { method: 'POST', body: data, auth: false }),
+  /** Creates an Applicant in Pending status and queues a confirmation email (UC4). */
+  register: (data: Registration) => request<User>('/auth/register', { method: 'POST', body: data, auth: false }),
 
+  /** Always answers neutrally, whether or not the account exists. */
   forgotPassword: (email: string) =>
-    request<null>('/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
+    request<{ detail: string }>('/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
 
   /**
-   * Handles every e-mail link: without a password it confirms an applicant's email,
-   * with a password it sets a new one (after a reset or an invitation).
+   * Redeems a link sent by email. A confirmation link is sent without a password and signs the
+   * applicant in; reset and invitation links carry the new password.
    */
   emailLink: (token: string, password?: string, confirmation?: string) =>
-    request<EmailLinkResponse | null>('/auth/email-link', {
+    request<EmailLinkResponse>('/auth/email-link', {
       method: 'POST',
       body: password !== undefined ? { token, password, confirm_password: confirmation ?? password } : { token },
       auth: false,
     }),
+
+  /** Ends every session of the user, including the current one (UC3). */
+  changePassword: (change: PasswordChange) => request<null>('/auth/change-password', { method: 'POST', body: change }),
+
+  /** One-time ticket that signs the user in to a connected module (FR2). */
+  moduleTicket: (code: string) => request<ModuleLaunch>('/auth/module-ticket', { method: 'POST', body: { code } }),
 }
