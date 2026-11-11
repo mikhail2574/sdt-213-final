@@ -18,10 +18,10 @@ export const authApi = {
    * Redeems a link sent by email. A confirmation link is sent without a password and signs the
    * applicant in; reset and invitation links carry the new password.
    */
-  emailLink: (token: string, password?: string) =>
+  emailLink: (token: string, password?: string, confirmation?: string) =>
     request<EmailLinkResponse>('/auth/email-link', {
       method: 'POST',
-      body: password ? { token, password, confirm_password: password } : { token },
+      body: password !== undefined ? { token, password, confirm_password: confirmation ?? password } : { token },
       auth: false,
     }),
 

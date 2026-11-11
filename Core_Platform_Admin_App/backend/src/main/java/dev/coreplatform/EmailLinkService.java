@@ -57,6 +57,7 @@ public class EmailLinkService {
     }
     @Transactional
     public Map<String,Object> register(Registration body) {
+        if(body.name().strip().length()<2) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"Name must contain at least 2 non-padding characters");
         policy.validate(body.password());
         if(!body.password().equals(body.confirm_password())) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,"The new passwords do not match");
         String address=body.email().strip().toLowerCase(Locale.ROOT);

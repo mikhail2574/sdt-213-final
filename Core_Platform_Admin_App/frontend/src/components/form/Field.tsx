@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { cloneElement, isValidElement, useId, type ReactNode } from 'react'
 
 interface FieldProps {
   label: string
@@ -10,11 +10,15 @@ interface FieldProps {
 
 /** A <label> wrapper so every control has an accessible name (NFR15). */
 export default function Field({ label, hint, children, hideLabel = false }: FieldProps) {
+  const generatedId = useId()
+  const control = isValidElement<{ id?: string; 'aria-describedby'?: string }>(children) ? children : null
+  const id = control?.props.id ?? generatedId
+  const description = [control?.props['aria-describedby'], hint ? `${id}-hint` : ''].filter(Boolean).join(' ') || undefined
   return (
-    <label className="flex flex-col gap-2 text-sm">
-      <span className={hideLabel ? 'sr-only' : 'font-medium'}>{label}</span>
-      {children}
-      {hint && <span className="text-xs text-muted">{hint}</span>}
-    </label>
+    <div className="flex flex-col gap-2 text-sm">
+      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'font-medium'}>{label}</label>
+      {control ? cloneElement(control, { id, 'aria-describedby': description }) : children}
+      {hint && <span id={`${id}-hint`} className="text-xs text-muted">{hint}</span>}
+    </div>
   )
 }

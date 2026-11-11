@@ -22,7 +22,7 @@ export default function SetPasswordForm({ token }: { token: string }) {
       save.setError(passwordError)
       return
     }
-    const result = await save.run(token, password)
+    const result = await save.run(token, password, confirmation)
     if (result !== undefined) setDone(true)
   }
 

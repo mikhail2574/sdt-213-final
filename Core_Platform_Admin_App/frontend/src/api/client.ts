@@ -77,7 +77,7 @@ async function send(path: string, { method = 'GET', body, params, auth = true }:
     const data: { detail?: unknown } = await response.json().catch(() => ({}))
     const message = typeof data.detail === 'string' ? data.detail : `Request failed (${response.status})`
     // An authenticated request rejected with 401 means the session is gone (expired, revoked or idle timeout).
-    if (response.status === 401 && token) unauthorizedHandler?.()
+    if (response.status === 401 && token && token === tokenStore.get()) unauthorizedHandler?.()
     throw new ApiError(message, response.status)
   }
   return response
