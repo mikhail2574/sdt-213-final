@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "playwright test",
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc",
     "build": "tsc && vite build",
@@ -15,6 +16,7 @@
     "react-router-dom": "^7.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.3.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

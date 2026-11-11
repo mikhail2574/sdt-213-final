@@ -4,3 +4,5 @@
 # Generated frontend builds at any depth
 dist/
 *.log
+**/test-results/
+**/playwright-report/
