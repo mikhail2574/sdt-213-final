@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/*
+ * Minimal pastel palette: warm paper background, black text,
+ * two soft accents (lilac and sky) and one soft rose for errors.
+ */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-paper: #f6f1e8;
+  --color-surface: #fcfaf6;
+  --color-field: #ede6da;
+  --color-line: #e5dccd;
+
+  --color-ink: #1d1b18;
+  --color-muted: #6c6459;
+
+  --color-lilac: #e8d6ec;
+  --color-lilac-strong: #dcc3e3;
+  --color-lilac-deep: #8a6497;
+
+  --color-sky: #d6e5f2;
+  --color-sky-strong: #c2d7ec;
+
+  --color-rose: #f3d9d4;
+  --color-rose-strong: #ecc6bf;
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-paper;
+  }
+
+  body {
+    @apply min-w-[360px] font-sans text-ink antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-lilac-deep);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-lilac);
+  }
+}
