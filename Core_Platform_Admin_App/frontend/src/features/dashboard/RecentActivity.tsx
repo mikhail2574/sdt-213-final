@@ -14,7 +14,7 @@ export default function RecentActivity({ entries }: { entries: AuditEntry[] }) {
               {entry.result === 'Failed' && <span className="ml-2 text-sm font-normal text-muted">failed</span>}
             </p>
             <p className="truncate text-sm text-muted">
-              {entry.actor} · {entry.target}
+              {entry.target && entry.target !== entry.actor ? `${entry.actor} · ${entry.target}` : entry.actor}
             </p>
           </div>
           <time dateTime={entry.timestamp} className="shrink-0 text-sm text-muted">
