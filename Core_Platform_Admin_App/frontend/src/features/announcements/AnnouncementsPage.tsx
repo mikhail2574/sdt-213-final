@@ -1,25 +1,30 @@
-import { ANNOUNCEMENT_CATEGORY } from '../../lib/constants'
+import { notificationsApi } from '../../api/notificationsApi'
+import useAsync from '../../hooks/useAsync'
+import AsyncView from '../../components/ui/AsyncView'
 import SectionHeader from '../../components/ui/SectionHeader'
-import NotificationList from '../notifications/NotificationList'
 import useNotifications from '../notifications/useNotifications'
 import AnnouncementForm from './AnnouncementForm'
+import AnnouncementHistory from './AnnouncementHistory'
 
-const HISTORY_SIZE = 6
-
-/** FR25: administrators and authorized staff send announcements to everyone, a role or a department. */
+/** FR25: administrators and authorized staff and faculty send announcements to the audiences they may address. */
 export default function AnnouncementsPage() {
-  const { items, reload } = useNotifications()
-  const recent = items.filter(item => item.category === ANNOUNCEMENT_CATEGORY).slice(0, HISTORY_SIZE)
+  const history = useAsync(notificationsApi.announcements, [])
+  const { reload: reloadInbox } = useNotifications()
 
   return (
     <div className="grid items-start gap-14 lg:grid-cols-[1.5fr_1fr]">
       <section>
         <SectionHeader title="New announcement" />
-        <AnnouncementForm onSent={() => void reload()} />
+        <AnnouncementForm
+          onSent={() => {
+            history.reload()
+            void reloadInbox()
+          }}
+        />
       </section>
       <section>
-        <SectionHeader title="Recent announcements" />
-        <NotificationList items={recent} emptyMessage="No announcements yet." />
+        <SectionHeader title="Sent announcements" />
+        <AsyncView state={history}>{items => <AnnouncementHistory items={items} />}</AsyncView>
       </section>
     </div>
   )
