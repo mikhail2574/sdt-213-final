@@ -43,7 +43,7 @@ export default function RegisterPage() {
     return (
       <>
         {heading}
-        <Alert tone="success">We sent a confirmation link to {registeredEmail}. Open it to activate your account.</Alert>
+        <Alert tone="success">Your account was created. We sent a confirmation link to {registeredEmail}. Open it to activate your account.</Alert>
         <div className="mt-6">
           <AuthLink to="/login">Back to sign in</AuthLink>
         </div>

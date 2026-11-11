@@ -56,16 +56,20 @@ export default function MessagesPage() {
         </Button>
       </div>
       <AsyncView state={conversations} loadingLabel="Loading conversations…">
-        {() => (
-          <div className="grid gap-10 md:grid-cols-[minmax(220px,1fr)_2fr]">
-            <ConversationList conversations={list} contacts={contacts.byId} selectedId={selectedId} onSelect={setSelectedId} />
-            {selected ? (
-              <ConversationView key={selected.id} conversation={selected} contacts={contacts.byId} onSent={conversations.reload} />
-            ) : (
-              <EmptyState message="Select a conversation or start a new one." />
-            )}
-          </div>
-        )}
+        {() =>
+          list.length === 0 ? (
+            <EmptyState message="No conversations yet." />
+          ) : (
+            <div className="grid gap-10 md:grid-cols-[minmax(220px,1fr)_2fr]">
+              <ConversationList conversations={list} contacts={contacts.byId} selectedId={selectedId} onSelect={setSelectedId} />
+              {selected ? (
+                <ConversationView key={selected.id} conversation={selected} contacts={contacts.byId} onSent={conversations.reload} />
+              ) : (
+                <EmptyState message="Select a conversation." />
+              )}
+            </div>
+          )
+        }
       </AsyncView>
       {composer && (
         <NewMessageDialog
