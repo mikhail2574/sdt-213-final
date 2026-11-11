@@ -5,6 +5,8 @@ export interface RegistrationData {
   name: string
   email: string
   password: string
+  confirm_password: string
+  privacy_accepted: boolean
 }
 
 export const authApi = {
@@ -14,7 +16,7 @@ export const authApi = {
   logout: () => request<null>('/auth/logout', { method: 'POST' }),
 
   /** Creates an Applicant in Pending status and sends a confirmation email. */
-  register: (data: RegistrationData) => request<null>('/auth/register', { method: 'POST', body: data, auth: false }),
+  register: (data: RegistrationData) => request<import('../types/api').User>('/auth/register', { method: 'POST', body: data, auth: false }),
 
   forgotPassword: (email: string) =>
     request<null>('/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
@@ -23,10 +25,10 @@ export const authApi = {
    * Handles every e-mail link: without a password it confirms an applicant's email,
    * with a password it sets a new one (after a reset or an invitation).
    */
-  emailLink: (token: string, password?: string) =>
+  emailLink: (token: string, password?: string, confirmation?: string) =>
     request<EmailLinkResponse | null>('/auth/email-link', {
       method: 'POST',
-      body: password ? { token, password } : { token },
+      body: password !== undefined ? { token, password, confirm_password: confirmation ?? password } : { token },
       auth: false,
     }),
 }

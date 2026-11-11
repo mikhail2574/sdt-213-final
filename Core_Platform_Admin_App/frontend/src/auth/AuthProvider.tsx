@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AuthContext, type AuthContextValue, type AuthStatus } from './AuthContext'
 import { authApi } from '../api/authApi'
 import { meApi } from '../api/meApi'
@@ -12,8 +12,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Me | null>(null)
   const [status, setStatus] = useState<AuthStatus>(() => (tokenStore.get() ? 'loading' : 'anonymous'))
   const [flash, setFlash] = useState('')
+  const generation = useRef(0)
 
   const endSession = useCallback((message = '') => {
+    generation.current++
     tokenStore.clear()
     setUser(null)
     setStatus('anonymous')
@@ -21,14 +23,18 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refreshUser = useCallback(async () => {
+    const started = generation.current
     const me = await meApi.get()
-    setUser(me)
-    setStatus('authenticated')
+    if (started === generation.current) {
+      setUser(me)
+      setStatus('authenticated')
+    }
     return me
   }, [])
 
   const signInWithToken = useCallback(
     async (token: string) => {
+      generation.current++
       tokenStore.set(token)
       setFlash('')
       return refreshUser()
@@ -63,7 +69,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restore the session from a stored token on page load.
   useEffect(() => {
-    if (tokenStore.get()) refreshUser().catch(() => endSession())
+    const started = generation.current
+    if (tokenStore.get()) refreshUser().catch(() => { if (started === generation.current) endSession() })
   }, [refreshUser, endSession])
 
   const value = useMemo<AuthContextValue>(() => {

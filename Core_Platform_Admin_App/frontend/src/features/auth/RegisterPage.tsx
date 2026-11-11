@@ -27,7 +27,12 @@ export default function RegisterPage() {
       register.setError(passwordError)
       return
     }
-    const result = await register.run({ name: form.name.trim(), email: form.email.trim(), password: form.password })
+    if (!form.privacyAccepted) {
+      register.setError('Please accept the privacy notice.')
+      return
+    }
+    const result = await register.run({ name: form.name.trim(), email: form.email.trim(), password: form.password,
+      confirm_password: form.confirmation, privacy_accepted: form.privacyAccepted })
     if (result !== undefined) setRegisteredEmail(form.email.trim())
   }
 
@@ -37,7 +42,7 @@ export default function RegisterPage() {
     return (
       <>
         {heading}
-        <Alert tone="success">We sent a confirmation link to {registeredEmail}. Open it to activate your account.</Alert>
+        <Alert tone="success">Your account was created. A confirmation email for {registeredEmail} has been queued. Open the link when it arrives to activate your account.</Alert>
         <div className="mt-6">
           <AuthLink to="/login">Back to sign in</AuthLink>
         </div>
