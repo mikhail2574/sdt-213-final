@@ -1,5 +1,6 @@
 import { authApi } from '../../api/authApi'
 import useAction from '../../hooks/useAction'
+import { moduleDescription } from '../../lib/modules'
 import type { ModuleLink } from '../../types/api'
 import Tile from './Tile'
 
@@ -16,7 +17,7 @@ export default function ModuleTileCard({ module }: { module: ModuleLink }) {
   return (
     <Tile
       title={module.name}
-      description={launch.busy ? 'Opening…' : 'Open with your university account'}
+      description={launch.busy ? 'Opening…' : moduleDescription(module.code)}
       footer={launch.error || null}
       onClick={() => void launch.run()}
       disabled={launch.busy}

@@ -1,18 +1,18 @@
+import { moduleName } from '../../lib/modules'
 import EmptyState from '../../components/ui/EmptyState'
 import { Table, Td } from '../../components/ui/Table'
-import type { Report } from '../../types/api'
+import type { ReportRow } from '../../types/api'
 
-export default function ReportTable({ report }: { report: Report }) {
-  if (report.rows.length === 0) return <EmptyState message="No data for this period." />
+/** One row per metric reported by a module. */
+export default function ReportTable({ rows }: { rows: ReportRow[] }) {
+  if (rows.length === 0) return <EmptyState message="No module returned data for this period." />
   return (
-    <Table headers={report.columns}>
-      {report.rows.map((row, rowIndex) => (
-        <tr key={rowIndex}>
-          {row.map((cell, cellIndex) => (
-            <Td key={cellIndex} className={cellIndex === 0 ? 'font-medium' : undefined}>
-              {cell}
-            </Td>
-          ))}
+    <Table headers={['Module', 'Metric', 'Value']}>
+      {rows.map((row, index) => (
+        <tr key={`${row.module}-${row.metric}-${index}`}>
+          <Td className="text-muted">{moduleName(row.module)}</Td>
+          <Td className="font-medium">{row.metric}</Td>
+          <Td>{row.value}</Td>
         </tr>
       ))}
     </Table>

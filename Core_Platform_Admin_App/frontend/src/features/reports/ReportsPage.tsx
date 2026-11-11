@@ -6,50 +6,61 @@ import { saveFile } from '../../lib/download'
 import Alert from '../../components/ui/Alert'
 import AsyncView from '../../components/ui/AsyncView'
 import Button from '../../components/ui/Button'
+import { moduleName } from '../../lib/modules'
 import SectionHeader from '../../components/ui/SectionHeader'
-import Field from '../../components/form/Field'
-import Select from '../../components/form/Select'
-import ReportSummary from './ReportSummary'
+import { currentTerm } from './currentTerm'
+import PeriodForm from './PeriodForm'
 import ReportTable from './ReportTable'
 
 /**
- * UC16 View and export reports (FR27, FR28). GET /reports returns the cross-module report
- * for administrators and viewers, and only their own courses for faculty.
+ * UC16 View and export reports (FR27, FR28). The server collects the metrics from every module:
+ * the whole platform for administrators and viewers, only their own courses for faculty.
  */
 export default function ReportsPage() {
-  const [period, setPeriod] = useState('')
-  const report = useAsync(() => reportsApi.get(period || undefined), [period])
-  const exportCsv = useAction(async () => saveFile(await reportsApi.csv(period || report.data?.period), 'report.csv'))
+  const [period, setPeriod] = useState(currentTerm)
+  const report = useAsync(() => reportsApi.get(period), [period])
+  const exportCsv = useAction(async () => saveFile(await reportsApi.csv(period), 'report.csv'))
 
   return (
-    <AsyncView state={report} loadingLabel="Building the report…">
-      {data => (
-        <>
-          <div className="mb-10 flex flex-wrap items-end gap-4">
-            <div className="w-48">
-              <Field label="Period">
-                <Select options={data.periods ?? [data.period]} value={period || data.period} onChange={e => setPeriod(e.target.value)} />
-              </Field>
-            </div>
-            <Button onClick={() => void exportCsv.run()} busy={exportCsv.busy} busyText="Exporting…">
-              Export CSV
-            </Button>
-          </div>
-          {exportCsv.error && (
-            <div className="mb-6">
-              <Alert>{exportCsv.error}</Alert>
-            </div>
-          )}
-          {data.missing_modules && data.missing_modules.length > 0 && (
-            <div className="mb-8">
-              <Alert tone="info">Not available right now: {data.missing_modules.join(', ')}. The report is shown without their data.</Alert>
-            </div>
-          )}
-          <ReportSummary metrics={data.summary ?? []} />
-          <SectionHeader title={data.title} />
-          <ReportTable report={data} />
-        </>
-      )}
-    </AsyncView>
+    <>
+      <div className="mb-10">
+        <PeriodForm period={period} onSubmit={setPeriod} />
+      </div>
+      <AsyncView state={report} loadingLabel="Collecting data from the modules…">
+        {data => (
+          <section>
+            <SectionHeader
+              title={`Period: ${data.period}`}
+              description={data.scope === 'own_courses' ? 'Your courses only.' : 'All connected modules.'}
+              actions={
+                <Button onClick={() => void exportCsv.run()} busy={exportCsv.busy} busyText="Exporting…">
+                  Export CSV
+                </Button>
+              }
+            />
+            {exportCsv.error && (
+              <div className="mb-6">
+                <Alert>{exportCsv.error}</Alert>
+              </div>
+            )}
+            {data.missing_modules.length > 0 && (
+              <div className="mb-6">
+                <Alert tone="info">
+                  <p>The report is shown without these modules:</p>
+                  <ul className="mt-1">
+                    {data.missing_modules.map(missing => (
+                      <li key={missing.module}>
+                        {moduleName(missing.module)}: {missing.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </Alert>
+              </div>
+            )}
+            <ReportTable rows={data.rows} />
+          </section>
+        )}
+      </AsyncView>
+    </>
   )
 }
