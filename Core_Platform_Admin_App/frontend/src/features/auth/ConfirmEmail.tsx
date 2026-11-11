@@ -24,7 +24,7 @@ export default function ConfirmEmail({ token }: { token: string }) {
     authApi
       .emailLink(token)
       .then(async response => {
-        if (response?.access_token) {
+        if ('access_token' in response) {
           const user = await signInWithToken(response.access_token)
           navigate(startPath(user), { replace: true })
         } else {

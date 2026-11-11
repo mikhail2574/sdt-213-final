@@ -27,7 +27,13 @@ export default function RegisterPage() {
       register.setError(passwordError)
       return
     }
-    const result = await register.run({ name: form.name.trim(), email: form.email.trim(), password: form.password })
+    const result = await register.run({
+      name: form.name.trim(),
+      email: form.email.trim(),
+      password: form.password,
+      confirm_password: form.confirmation,
+      privacy_accepted: form.privacyAccepted,
+    })
     if (result !== undefined) setRegisteredEmail(form.email.trim())
   }
 

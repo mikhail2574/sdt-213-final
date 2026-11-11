@@ -3,7 +3,7 @@ import { AuthContext, type AuthContextValue, type AuthStatus } from './AuthConte
 import { authApi } from '../api/authApi'
 import { meApi } from '../api/meApi'
 import { ApiError, setUnauthorizedHandler, tokenStore } from '../api/client'
-import { CONSOLE_PERMISSIONS, resolvePermissions, type Permission } from '../lib/permissions'
+import { CONSOLE_PERMISSIONS, type Permission } from '../lib/permissions'
 import type { Me } from '../types/api'
 
 const SESSION_EXPIRED = 'Your session has expired. Please sign in again.'
@@ -67,14 +67,15 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser, endSession])
 
   const value = useMemo<AuthContextValue>(() => {
-    const permissions = resolvePermissions(user)
-    const can = (permission: Permission) => permissions.has(permission)
+    const permissions = new Set(user?.permissions ?? [])
+    const can = (permission: Permission | Permission[]) =>
+      (Array.isArray(permission) ? permission : [permission]).some(code => permissions.has(code))
     return {
       user,
       status,
       flash,
       can,
-      hasConsoleAccess: CONSOLE_PERMISSIONS.some(can),
+      hasConsoleAccess: can(CONSOLE_PERMISSIONS),
       login,
       signInWithToken,
       logout,
