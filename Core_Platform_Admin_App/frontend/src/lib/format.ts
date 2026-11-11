@@ -52,6 +52,11 @@ export function roleLabel(user: Pick<User, 'role' | 'console_access'>): string {
   return user.console_access ? `${user.role} · ${user.console_access}` : user.role
 }
 
+/** "1 user", "3 users" */
+export function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`
+}
+
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong.'
 }

@@ -1,15 +1,18 @@
-import type { RoleDefinition } from '../../types/api'
+import type { RolePermissions } from '../../types/api'
+import { plural } from '../../lib/format'
+import { ROLE_DESCRIPTIONS } from './permissionCatalog'
 
-/** One line per role: name, description, users and number of permissions. */
-export default function RoleOverview({ roles }: { roles: RoleDefinition[] }) {
+/** One line per role: name, description, number of users (administrators only) and permissions. */
+export default function RoleOverview({ roles }: { roles: RolePermissions[] }) {
   return (
-    <div className="mb-14 grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mb-14 grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
       {roles.map(role => (
-        <div key={role.name}>
-          <p className="font-semibold">{role.name}</p>
-          {role.description && <p className="mt-1 text-sm text-muted">{role.description}</p>}
+        <div key={role.code}>
+          <p className="font-semibold">{role.code}</p>
+          <p className="mt-1 text-sm text-muted">{ROLE_DESCRIPTIONS[role.code]}</p>
           <p className="mt-2 text-sm">
-            {role.user_count ?? 0} users · {role.permissions.length} permissions
+            {role.user_count !== undefined && `${plural(role.user_count, 'user')} · `}
+            {plural(role.permissions.length, 'permission')}
           </p>
         </div>
       ))}

@@ -18,7 +18,9 @@ export const adminApi = {
       },
     }),
 
-  audit: (filters: AuditFilters) => request<AuditEntry[]>('/admin/audit', { params: { ...filters } as QueryParams }),
+  /** Newest first; pass the id of the last loaded record as `before` for older records. */
+  audit: (filters: AuditFilters, before?: number) =>
+    request<AuditEntry[]>('/admin/audit', { params: { ...filters, before } as QueryParams }),
 
   auditCsv: (filters: AuditFilters) => requestFile('/admin/audit', { params: { ...filters, format: 'csv' } }),
 }

@@ -16,7 +16,7 @@ export default function AuditTable({ entries }: { entries: AuditEntry[] }) {
           <Td className="font-medium">{entry.action}</Td>
           <Td className="text-muted">{entry.target}</Td>
           <Td>
-            <Badge tone={entry.result === 'Failed' ? 'rose' : 'blue'}>{entry.result}</Badge>
+            {entry.result === 'Failed' ? <Badge tone="rose">Failed</Badge> : <span className="text-muted">Success</span>}
           </Td>
         </tr>
       ))}

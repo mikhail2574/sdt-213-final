@@ -52,7 +52,7 @@ export default function SettingsForm({ initial, onSaved }: SettingsFormProps) {
         {saved && <Alert tone="success">Settings saved. The change is recorded in the activity log.</Alert>}
         <div>
           <Button type="submit" variant="primary" busy={save.busy} busyText="Saving…">
-            Save changes
+            Save settings
           </Button>
         </div>
       </div>

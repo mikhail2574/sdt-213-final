@@ -13,18 +13,18 @@ export default function GeneralSettingsFields({ value, onChange }: GeneralSettin
     <section className="flex flex-col gap-5">
       <SectionHeader title="University and term" />
       <Field label="University name">
-        <Input required maxLength={150} value={value.university_name} onChange={e => onChange({ university_name: e.target.value })} />
+        <Input required maxLength={120} value={value.university_name} onChange={e => onChange({ university_name: e.target.value })} />
       </Field>
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Term start">
-          <Input type="date" value={value.term_start} onChange={e => onChange({ term_start: e.target.value })} />
+          <Input type="date" value={value.term_start ?? ''} onChange={e => onChange({ term_start: e.target.value || null })} />
         </Field>
         <Field label="Term end">
-          <Input type="date" value={value.term_end} onChange={e => onChange({ term_end: e.target.value })} />
+          <Input type="date" value={value.term_end ?? ''} onChange={e => onChange({ term_end: e.target.value || null })} />
         </Field>
       </div>
       <Field label="Email sender address">
-        <Input type="email" required value={value.email_sender} onChange={e => onChange({ email_sender: e.target.value })} />
+        <Input type="email" required maxLength={255} value={value.email_sender} onChange={e => onChange({ email_sender: e.target.value })} />
       </Field>
     </section>
   )
