@@ -18,7 +18,7 @@ export const NOTIFICATION_CATEGORIES = [
 export const ANNOUNCEMENT_CATEGORY = 'announcements'
 
 export const CHANNELS: { value: Channel; label: string }[] = [
-  { value: 'in_app_email', label: 'In-app + email' },
+  { value: 'both', label: 'In-app + email' },
   { value: 'in_app', label: 'In-app only' },
   { value: 'email', label: 'Email only' },
 ]

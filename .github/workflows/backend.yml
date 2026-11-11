@@ -70,3 +70,5 @@ jobs:
           cache-dependency-path: Core_Platform_Admin_App/frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm test

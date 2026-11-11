@@ -6,7 +6,7 @@ export const PASSWORD_HINT = 'At least 8 characters, including a letter and a nu
  */
 export function validateNewPassword(password: string, confirmation: string, minLength = 8): string {
   if (password !== confirmation) return 'The new passwords do not match.'
-  if (password.length < minLength || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+  if (password.length < minLength || !/\p{L}/u.test(password) || !/\p{Nd}/u.test(password)) {
     return `Use at least ${minLength} characters, including a letter and a number.`
   }
   if (new TextEncoder().encode(password).length > 72) return 'The password must be at most 72 bytes long.'

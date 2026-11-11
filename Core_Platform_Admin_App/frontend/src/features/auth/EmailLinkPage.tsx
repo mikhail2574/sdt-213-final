@@ -11,9 +11,9 @@ import SetPasswordForm from './SetPasswordForm'
 export default function EmailLinkPage() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
-  const type = params.get('type') ?? 'reset'
+  const type = params.get('purpose') ?? params.get('type') ?? 'reset'
 
-  if (!token) {
+  if (!token || !['confirm', 'reset', 'invite'].includes(type)) {
     return (
       <>
         <AuthHeading title="This link is not valid" description="It is incomplete or has expired. Request a new one." />
@@ -26,7 +26,7 @@ export default function EmailLinkPage() {
     return (
       <>
         <AuthHeading title="Confirming your email" />
-        <ConfirmEmail token={token} />
+        <ConfirmEmail key={token} token={token} />
       </>
     )
   }

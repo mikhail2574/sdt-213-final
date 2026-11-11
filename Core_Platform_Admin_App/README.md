@@ -53,8 +53,9 @@ Set `JWT_SECRET` to a private value of at least 32 bytes; `APP_ENV=production` r
 - One-time module launch tickets, module-bound tokens and module-side token introspection.
 - Validated private profile photo storage and internal subsystem health probes.
 
-The React UI remains a prototype and does not expose all backend workflows. Use the versioned API
-or Swagger for registration, recovery, groups, announcements, reports and settings.
+The React UI includes registration, email confirmation, password recovery, reports, notifications,
+messages, announcements, profile editing, and administrative users, roles, settings and service status.
+Group synchronization, gateway policy management and photo uploads remain available through the API.
 The existing `/admin/users` routes stay compatible; new consumers should use paginated `/users`.
 
 ## Configuration
@@ -72,8 +73,9 @@ docker compose --profile mail up -d
 Set `MAIL_ENABLED=true`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` before starting Spring Boot.
 View captured email at http://127.0.0.1:8025 ([Mailpit Docker documentation](https://mailpit.axllent.org/docs/install/docker/)). `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_AUTH` and
 `SMTP_STARTTLS` configure a real SMTP provider. Sender address is in platform settings.
-`EMAIL_LINK_BASE` defaults to `http://127.0.0.1:5173/email-link`; the React prototype
-has no email-link screen, so redeem captured tokens via `POST /api/v1/auth/email-link`.
+`EMAIL_LINK_BASE` defaults to `http://127.0.0.1:5173/email-link`; open the captured link
+to confirm registration or set a password in the UI. Registration sends `confirm_password` and
+`privacy_accepted`; reports require a non-empty `period` for JSON and CSV requests.
 Never expose the outbox through a public API.
 
 For each of `SIS`, `LMS`, `SCHEDULING`, `ADMISSIONS`, set `<CODE>_MODULE_URL` and a distinct
@@ -101,11 +103,27 @@ Tests use isolated H2 databases in MySQL mode. MySQL 8.4 migration and trigger c
 SMTP/module integration and load testing remain necessary before deployment. Previously issued
 JWTs without persisted SQL sessions are rejected; sign in again.
 
+Frontend checks:
+
+```sh
+cd frontend
+npm ci
+npm run build
+npx playwright install chromium
+npm test
+```
+
+Playwright checks the browser flows against controlled API responses, including registration payloads,
+single-use confirmation submission, reports, access restrictions, user edits, notifications and settings.
+The Java integration tests independently exercise those API contracts against an isolated database.
+An optional browser test uses a real API: set `LIVE_API_TEST=1` and run `npm test` with a disposable,
+seeded backend on port 8000. It creates test users, messages and announcements; use a test database.
+The Vite server uses port 5173 strictly because the backend allows that development origin.
+
 ## Remaining requirements
 
 The REST API implements the specified local workflows. Production integration still requires other
 teams to implement and agree the module adapters, trust the introspection contract, provision distinct
-module keys and URLs, and verify course ownership end to end. The React prototype needs dedicated
-screens for the newer workflows. Deployment must provide HTTPS, ingress rate limits, secure secrets,
+module keys and URLs, and verify course ownership end to end. Deployment must provide HTTPS, ingress rate limits, secure secrets,
 scheduled encrypted backups and restore drills, plus availability and performance validation. See
 BACKEND_DESIGN.md for the use-case traceability and precise limits of the implementation.

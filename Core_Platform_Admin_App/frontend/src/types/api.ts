@@ -7,9 +7,9 @@
 export type Role = 'Administrator' | 'Faculty' | 'Staff' | 'Student' | 'Applicant'
 export type AccountStatus = 'Active' | 'Pending' | 'Inactive'
 export type ConsoleAccess = 'Operator' | 'Viewer'
-export type HealthState = 'Operational' | 'Degraded' | 'Down'
+export type HealthState = 'Operational' | 'Degraded' | 'Down' | 'Unknown' | 'Disabled'
 export type AuditResult = 'Success' | 'Failed'
-export type Channel = 'in_app' | 'email' | 'in_app_email'
+export type Channel = 'in_app' | 'email' | 'both'
 
 export interface User {
   id: number
@@ -42,7 +42,7 @@ export interface Me extends User {
   personal_email?: string | null
   photo_url?: string | null
   student_id?: string | null
-  email_notifications?: EmailNotificationSettings
+  email_preferences?: { category: string; email_enabled: boolean }[]
 }
 
 export interface MeUpdate {
@@ -50,9 +50,10 @@ export interface MeUpdate {
   phone?: string
   personal_email?: string
   photo_url?: string
-  email_notifications?: EmailNotificationSettings
+  email_preferences?: EmailNotificationSettings
   current_password?: string
   new_password?: string
+  confirm_password?: string
 }
 
 export interface LoginResponse {
@@ -70,12 +71,11 @@ export interface NewUser {
   name: string
   email: string
   role: Role
-  status: AccountStatus
   department?: string
   console_access?: ConsoleAccess | null
 }
 
-export type UserUpdate = Partial<Omit<NewUser, 'email'>> & { phone?: string }
+export type UserUpdate = Partial<Omit<NewUser, 'email'>> & { status?: AccountStatus }
 
 export interface UserFilters {
   q?: string
@@ -91,7 +91,7 @@ export interface Notification {
   title: string
   text: string
   created_at: string
-  read: boolean
+  read_at: string | null
   link?: string | null
 }
 
@@ -128,11 +128,14 @@ export interface Conversation {
   id: number
   title?: string | null
   is_group?: boolean
+  first_user: number | null
+  second_user: number | null
+  group_code?: string | null
   participants?: Participant[]
   messages: Message[]
 }
 
-export type SendMessageRequest = { text: string } & ({ conversation_id: number } | { recipient_id: number })
+export type SendMessageRequest = { text: string } & ({ conversation_id: number } | { recipient_id: number } | { group_code: string })
 
 export interface SendMessageResponse {
   id?: number
@@ -140,9 +143,10 @@ export interface SendMessageResponse {
 }
 
 export interface ServiceStatus {
-  name: string
+  code: string
+  name?: string
   description?: string
-  status: HealthState
+  state: HealthState
   latency_ms?: number | null
   checked_at?: string | null
 }
@@ -174,7 +178,7 @@ export interface Dashboard {
   recent_activity: AuditEntry[]
   services?: ServiceStatus[]
   /** Older response: a single Core API status. */
-  service?: ServiceStatus
+  service: { name: string; status: HealthState }
 }
 
 export interface ReportMetric {
@@ -186,22 +190,20 @@ export interface ReportMetric {
 
 /** Follows the Report class of the design: title, period, columns and rows. */
 export interface Report {
-  title: string
   period: string
-  periods?: string[]
-  summary?: ReportMetric[]
+  scope: 'platform' | 'own_courses'
   columns: string[]
-  rows: (string | number)[][]
-  missing_modules?: string[]
+  rows: Record<string, string | number>[]
+  missing_modules: { module: string; reason: string }[]
 }
 
 export interface SystemSettings {
   university_name: string
-  term_start: string
-  term_end: string
+  term_start: string | null
+  term_end: string | null
   email_sender: string
   min_password_length: number
-  session_timeout_minutes: number
+  session_timeout: number
   lockout_attempts: number
 }
 
@@ -213,7 +215,7 @@ export interface ConnectedModule {
 }
 
 export interface RoleDefinition {
-  name: string
+  code: string
   description?: string
   type?: 'University' | 'Console'
   user_count?: number
@@ -230,4 +232,5 @@ export interface AdminSettings {
   modules: ConnectedModule[]
   roles: RoleDefinition[]
   permissions?: PermissionDefinition[]
+  permission_codes: string[]
 }
