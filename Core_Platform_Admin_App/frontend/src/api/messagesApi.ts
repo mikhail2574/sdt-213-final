@@ -1,12 +1,17 @@
 import { request } from './client'
-import { toList, type ListResponse } from '../lib/collections'
-import type { Conversation, SendMessageRequest, SendMessageResponse } from '../types/api'
+import type { ContactGroup, Conversation, CursorPage, Message, SendMessageRequest } from '../types/api'
 
 export const messagesApi = {
-  /** Conversations together with their messages. */
-  conversations: () => request<ListResponse<Conversation>>('/conversations').then(toList),
+  /** Newest conversations first, each with its latest messages. */
+  conversations: () => request<CursorPage<Conversation>>('/conversations'),
 
-  /** Reply with `conversation_id` or start a new conversation with `recipient_id`. */
-  send: (payload: SendMessageRequest) =>
-    request<SendMessageResponse | null>('/messages', { method: 'POST', body: payload }),
+  /** Older messages of one conversation, newest first. */
+  history: (id: number, before: number) =>
+    request<CursorPage<Message>>(`/conversations/${id}/messages`, { params: { before } }),
+
+  /** Reply with `conversation_id`, write to a person with `recipient_id`, or to an office or course with `group_code`. */
+  send: (payload: SendMessageRequest) => request<Message>('/messages', { method: 'POST', body: payload }),
+
+  /** Offices everyone can write to, plus the course groups the user belongs to. */
+  groups: () => request<ContactGroup[]>('/groups'),
 }

@@ -1,5 +1,4 @@
-import { request, requestFile } from './client'
-import { toList, type ListResponse } from '../lib/collections'
+import { request, requestFile, type QueryParams } from './client'
 import type { AdminSettings, AuditEntry, AuditFilters, Dashboard } from '../types/api'
 
 export const adminApi = {
@@ -8,12 +7,18 @@ export const adminApi = {
 
   settings: () => request<AdminSettings>('/admin/settings'),
 
-  /** Saves settings, module switches and role permissions as one object. */
+  /** Saves settings, module switches and role permissions as one object and returns the saved state. */
   saveSettings: (settings: AdminSettings) =>
-    request<AdminSettings | null>('/admin/settings', { method: 'PUT', body: settings }),
+    request<AdminSettings>('/admin/settings', {
+      method: 'PUT',
+      body: {
+        settings: settings.settings,
+        modules: settings.modules.map(({ code, enabled }) => ({ code, enabled })),
+        roles: settings.roles.map(({ code, permissions }) => ({ code, permissions })),
+      },
+    }),
 
-  audit: (filters: AuditFilters) =>
-    request<ListResponse<AuditEntry>>('/admin/audit', { params: { ...filters } }).then(toList),
+  audit: (filters: AuditFilters) => request<AuditEntry[]>('/admin/audit', { params: { ...filters } as QueryParams }),
 
   auditCsv: (filters: AuditFilters) => requestFile('/admin/audit', { params: { ...filters, format: 'csv' } }),
 }
